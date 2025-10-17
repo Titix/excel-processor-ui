@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
-    "build": "cd frontend && npm install && npx ng build --configuration production",
+    "build": "cd frontend && npm install && npm run build",
     "serve": "cd frontend && ng serve",
     "install-all": "npm install && cd frontend && npm install"
   },

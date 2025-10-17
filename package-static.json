@@ -1,0 +1,12 @@
+{
+  "name": "excel-processor-ui-static",
+  "version": "1.0.0",
+  "description": "Excel Processor - Static Deployment",
+  "scripts": {
+    "build": "echo 'Static files already built'",
+    "start": "echo 'Static deployment - no server needed'"
+  },
+  "keywords": ["excel", "processor", "static"],
+  "author": "Titix",
+  "license": "MIT"
+}

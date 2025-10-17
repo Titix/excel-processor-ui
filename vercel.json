@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "buildCommand": "npm run build",
-  "outputDirectory": "frontend/dist/excel-processor-ui",
-  "installCommand": "npm install",
+  "buildCommand": "echo 'No build needed - using pre-built files'",
+  "outputDirectory": "dist",
+  "installCommand": "echo 'No install needed'",
   "rewrites": [
     {
       "source": "/(.*)",

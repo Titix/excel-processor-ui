@@ -268,6 +268,13 @@ footer {
     font-size: 0.9rem;
 }
 
+.version-info {
+    margin-top: 5px;
+    font-size: 0.8rem;
+    opacity: 0.7;
+    font-style: italic;
+}
+
 /* Responsive design */
 @media (max-width: 768px) {
     .container {

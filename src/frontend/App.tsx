@@ -1,6 +1,9 @@
 import React, { useState, useRef } from 'react';
 import './App.css';
 
+// Version constant - update this when releasing new versions
+const APP_VERSION = '1.0.0';
+
 declare global {
   interface Window {
     XLSX: any;
@@ -303,6 +306,7 @@ const App: React.FC = () => {
 
       <footer>
         <p>&copy; 2025 Excel Processor. Built with React and Node.js.</p>
+        <p className="version-info">Version {APP_VERSION}</p>
       </footer>
     </div>
   );

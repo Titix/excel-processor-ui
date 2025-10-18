@@ -7,8 +7,17 @@
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
-    "test": "react-scripts test",
+    "test": "jest --config test/jest.config.js --rootDir .",
+    "test:watch": "jest --config test/jest.config.js --rootDir . --watch",
+    "test:coverage": "jest --config test/jest.config.js --rootDir . --coverage",
+    "test:unit": "jest --config test/jest.config.js --rootDir . --testPathPattern=\"(utils|App).test\"",
+    "test:integration": "jest --config test/jest.config.js --rootDir . --testPathPattern=\"integration.test\"",
+    "test:server": "jest --config test/jest.config.js --rootDir . --testPathPattern=\"server.test\"",
+    "test:ci": "jest --config test/jest.config.js --rootDir . --ci --coverage --watchAll=false",
+    "test:clean": "node test/runner.js test:clean",
     "eject": "react-scripts eject",
+    "preview": "npm run build && serve -s build -l 3001",
+    "preview-only": "serve -s build -l 3001",
     "server": "node src/backend/server.js",
     "dev": "nodemon src/backend/server.js",
     "build-server": "node src/backend/build.js",
@@ -34,7 +43,13 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
-    "nodemon": "^3.0.1"
+    "nodemon": "^3.0.1",
+    "serve": "^14.2.5",
+    "jest": "^29.7.0",
+    "jest-environment-jsdom": "^29.7.0",
+    "ts-jest": "^29.1.1",
+    "supertest": "^6.3.3",
+    "@types/supertest": "^2.0.16"
   },
   "keywords": [
     "excel",

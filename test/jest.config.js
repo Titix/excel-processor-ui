@@ -10,15 +10,16 @@ module.exports = {
     '<rootDir>/test/**/*.test.(ts|tsx|js|jsx)',
   ],
   collectCoverageFrom: [
-    'src/**/*.{ts,tsx,js,jsx}',
-    '!src/**/*.d.ts',
+    'src/frontend/**/*.{ts,tsx}',
+    '!src/frontend/**/*.d.ts',
+    '!src/frontend/index.tsx',
   ],
   coverageThreshold: {
     global: {
-      branches: 70,
-      functions: 70,
-      lines: 70,
-      statements: 70,
+      branches: 100,
+      functions: 100,
+      lines: 100,
+      statements: 100,
     },
   },
   coverageReporters: ['text', 'lcov', 'html'],

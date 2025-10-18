@@ -2,27 +2,36 @@
  * Backend Server Tests
  */
 
+// Polyfill for TextEncoder in Node.js environment
+if (typeof TextEncoder === 'undefined') {
+  const { TextEncoder, TextDecoder } = require('util');
+  global.TextEncoder = TextEncoder;
+  global.TextDecoder = TextDecoder;
+}
+
 const request = require('supertest');
 const express = require('express');
 const path = require('path');
+const cors = require('cors');
 
 // Mock the server module
 const createServer = () => {
   const app = express();
   
   // Middleware
+  app.use(cors());
   app.use(express.json());
   
   // Serve static files from React build
   app.use(express.static(path.join(__dirname, '../build')));
   
   // Health check endpoint
-  app.get('/health', (req: any, res: any) => {
+  app.get('/health', (req, res) => {
     res.json({ status: 'OK', timestamp: new Date().toISOString() });
   });
   
   // Serve React app for all other routes
-  app.get('*', (req: any, res: any) => {
+  app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, '../build/index.html'));
   });
   
@@ -30,7 +39,7 @@ const createServer = () => {
 };
 
 describe('Backend Server', () => {
-  let app: any;
+  let app;
 
   beforeEach(() => {
     app = createServer();
@@ -57,7 +66,7 @@ describe('Backend Server', () => {
         .expect(200);
       
       // The response should be the index.html file
-      expect(response.text).toContain('<!DOCTYPE html>');
+      expect(response.text).toContain('<!doctype html>');
     });
   });
 
@@ -79,7 +88,7 @@ describe('Backend Server', () => {
         .expect(200);
       
       // Should serve the React app for SPA routing
-      expect(response.text).toContain('<!DOCTYPE html>');
+      expect(response.text).toContain('<!doctype html>');
     });
   });
 });

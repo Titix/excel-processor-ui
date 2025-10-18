@@ -3,7 +3,7 @@
  */
 
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import App from '../src/frontend/App';
 
@@ -114,7 +114,7 @@ describe('Excel Processor Integration Tests', () => {
       });
 
       // Step 2: Process file
-      const processButton = screen.getByText('Process File');
+      const processButton = screen.getByRole('button', { name: 'Process File' });
       fireEvent.click(processButton);
 
       await waitFor(() => {
@@ -149,7 +149,7 @@ describe('Excel Processor Integration Tests', () => {
       });
 
       // Process first file
-      const processButton = screen.getByText('Process File');
+      const processButton = screen.getByRole('button', { name: 'Process File' });
       fireEvent.click(processButton);
 
       await waitFor(() => {
@@ -190,18 +190,22 @@ describe('Excel Processor Integration Tests', () => {
       });
       Object.defineProperty(file, 'size', { value: 1024 });
       
-      // Mock file reading error
-      const mockFileReader = createMockFileReader();
-      mockFileReader.onerror = jest.fn();
+      // Mock XLSX.read to throw an error
+      mockXLSX.read.mockImplementation(() => {
+        throw new Error('Error reading Excel file');
+      });
       
       fireEvent.drop(uploadArea!, {
         dataTransfer: { files: [file] }
       });
 
-      // Simulate error
-      if (mockFileReader.onerror) {
-        mockFileReader.onerror({ target: { error: new Error('File read error') } });
-      }
+      // Simulate the FileReader onload event
+      await act(async () => {
+        const mockFileReader = createMockFileReader();
+        if (mockFileReader.onload) {
+          mockFileReader.onload({ target: { result: new ArrayBuffer(8) } });
+        }
+      });
 
       await waitFor(() => {
         expect(screen.getByText(/Error reading Excel file/)).toBeInTheDocument();
@@ -230,7 +234,7 @@ describe('Excel Processor Integration Tests', () => {
         throw new Error('Processing failed');
       });
 
-      const processButton = screen.getByText('Process File');
+      const processButton = screen.getByRole('button', { name: 'Process File' });
       fireEvent.click(processButton);
 
       await waitFor(() => {
@@ -369,7 +373,7 @@ describe('Excel Processor Integration Tests', () => {
         expect(screen.getByText('📁 File loaded successfully! Ready to process.')).toBeInTheDocument();
       });
 
-      const processButton = screen.getByText('Process File');
+      const processButton = screen.getByRole('button', { name: 'Process File' });
       fireEvent.click(processButton);
 
       await waitFor(() => {

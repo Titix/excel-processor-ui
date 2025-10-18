@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import './App.css';
+import packageJson from '../../package.json';
 
 declare global {
   interface Window {
@@ -303,6 +304,7 @@ const App: React.FC = () => {
 
       <footer>
         <p>&copy; 2025 Excel Processor. Built with React and Node.js.</p>
+        <p className="version-info">Version {packageJson.version}</p>
       </footer>
     </div>
   );

@@ -1,6 +1,6 @@
 # Excel Processor UI
 
-A modern web application for processing Excel files built with Angular frontend and Node.js backend. This application provides the same functionality as the Spring Boot version but uses modern web technologies.
+A modern web application for processing Excel files built with React frontend and Node.js backend. This application provides client-side Excel processing with a clean, responsive interface.
 
 ## 🚀 Features
 
@@ -15,7 +15,7 @@ A modern web application for processing Excel files built with Angular frontend 
 ## 🛠️ Technology Stack
 
 ### Frontend
-- **Angular 17**: Modern component-based framework
+- **React 18**: Modern component-based framework with hooks
 - **TypeScript**: Type-safe JavaScript
 - **SheetJS (XLSX)**: Client-side Excel processing
 - **CSS3**: Modern styling with gradients and animations
@@ -27,8 +27,8 @@ A modern web application for processing Excel files built with Angular frontend 
 
 ## 📋 Prerequisites
 
-- **Node.js** (v18 or higher)
-- **npm** (v8 or higher)
+- **Node.js** (v14 or higher)
+- **npm** (v6 or higher)
 
 ## 🚀 Quick Start
 
@@ -40,37 +40,26 @@ This will also install npm automatically.
 ### 2. Install Dependencies
 
 ```bash
-# Install backend dependencies
+# Install all dependencies
 npm install
-
-# Install frontend dependencies
-cd frontend
-npm install
-cd ..
 ```
 
 ### 3. Development Mode
 
 ```bash
-# Start the Angular development server (frontend)
-cd frontend
+# Start the React development server
 npm start
-# Frontend will be available at http://localhost:4200
-
-# In another terminal, start the Node.js server (backend)
-cd ..
-npm run dev
-# Backend will be available at http://localhost:3000
+# Application will be available at http://localhost:3000 with hot reloading
 ```
 
 ### 4. Production Build
 
 ```bash
-# Build the Angular application
+# Build the React application
 npm run build
 
 # Start the production server
-npm start
+npm run server
 # Application will be available at http://localhost:3000
 ```
 
@@ -78,19 +67,23 @@ npm start
 
 ```
 excel-processor-ui/
-├── frontend/                 # Angular frontend
-│   ├── src/
-│   │   ├── app/
-│   │   │   └── app.component.ts
-│   │   ├── assets/
-│   │   ├── index.html
-│   │   ├── main.ts
-│   │   └── styles.css
-│   ├── angular.json
-│   ├── package.json
-│   └── tsconfig.json
-├── server.js                 # Node.js backend
-├── package.json              # Backend dependencies
+├── src/
+│   ├── frontend/             # React frontend source
+│   │   ├── App.tsx          # Main React component
+│   │   ├── App.css          # Component styles
+│   │   ├── index.tsx        # React entry point
+│   │   ├── index.css        # Global styles
+│   │   └── public/          # Static assets
+│   │       ├── index.html   # HTML template
+│   │       └── manifest.json # PWA manifest
+│   └── backend/             # Node.js backend source
+│       ├── server.js        # Express server
+│       └── build.js         # Build script
+├── src/                     # React build files (symlinked)
+├── public/                  # React public files (symlinked)
+├── build/                   # Production build (generated)
+├── package.json             # Dependencies and scripts
+├── tsconfig.json            # React TypeScript config
 └── README.md
 ```
 
@@ -104,8 +97,8 @@ excel-processor-ui/
 ## 🔧 Configuration
 
 ### Port Configuration
-- **Frontend (Development)**: Port 4200
-- **Backend**: Port 3000 (configurable via PORT environment variable)
+- **Development**: Port 3000 (React dev server)
+- **Production**: Port 3000 (configurable via PORT environment variable)
 
 ### File Limits
 - **Maximum file size**: 50MB
@@ -116,21 +109,32 @@ excel-processor-ui/
 ### Production Build
 ```bash
 npm run build
-npm start
+npm run server
 ```
 
 ### Environment Variables
 - `PORT`: Server port (default: 3000)
 
-## 🔍 Key Differences from Spring Boot Version
+## 📝 Available Scripts
 
-| Feature | Spring Boot | Angular + Node.js |
-|---------|-------------|-------------------|
-| Frontend | HTML/CSS/JS | Angular + TypeScript |
-| Backend | Spring Boot | Node.js + Express |
-| Build Tool | Maven | npm |
-| Processing | Client-side | Client-side |
-| Deployment | JAR file | Node.js server |
+- `npm start` - Start React development server
+- `npm run build` - Build React app for production
+- `npm run server` - Start Node.js production server
+- `npm run dev` - Start server with nodemon (auto-restart)
+- `npm run build-server` - Run build script
+- `npm test` - Run React tests
+- `npm run eject` - Eject from Create React App
+
+## 🔍 Key Features
+
+| Feature | Description |
+|---------|-------------|
+| Frontend | React 18 with TypeScript |
+| Backend | Node.js + Express |
+| Build Tool | Create React App |
+| Processing | Client-side with SheetJS |
+| Deployment | Node.js server |
+| Structure | Organized src/frontend and src/backend |
 
 ## 🐛 Troubleshooting
 
@@ -139,14 +143,14 @@ npm start
 1. **Port already in use**
    ```bash
    # Kill process using port 3000
-   npx kill-port 3000
+   taskkill /F /IM node.exe
    ```
 
-2. **Angular build fails**
+2. **Build fails**
    ```bash
-   # Clear Angular cache
-   cd frontend
-   npm run ng cache clean
+   # Clear npm cache and reinstall
+   npm cache clean --force
+   npm install
    ```
 
 3. **File not processing**
@@ -164,4 +168,4 @@ Built by Titix
 
 ---
 
-**Note**: This Angular version provides the same functionality as the Spring Boot version but uses modern web technologies for better performance and developer experience.
+**Note**: This React version provides modern web technologies for better performance and developer experience with hot reloading and TypeScript support. The project structure is organized with clear separation between frontend and backend code.

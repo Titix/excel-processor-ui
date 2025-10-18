@@ -9,6 +9,8 @@
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
+    "preview": "npm run build && serve -s build -l 3001",
+    "preview-only": "serve -s build -l 3001",
     "server": "node src/backend/server.js",
     "dev": "nodemon src/backend/server.js",
     "build-server": "node src/backend/build.js",
@@ -34,7 +36,8 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
-    "nodemon": "^3.0.1"
+    "nodemon": "^3.0.1",
+    "serve": "^14.2.5"
   },
   "keywords": [
     "excel",

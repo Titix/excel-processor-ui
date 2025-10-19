@@ -61,7 +61,7 @@ Object.defineProperty(window.URL, 'revokeObjectURL', {
   writable: true,
 });
 
-describe('App Component', () => {
+describe('App Component - Excel File Merger', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockXLSX.read.mockReturnValue(mockWorkbook);
@@ -73,18 +73,18 @@ describe('App Component', () => {
 
   test('renders main heading', () => {
     render(<App />);
-    expect(screen.getByText('Excel Processor')).toBeInTheDocument();
+    expect(screen.getByText('Excel File Merger')).toBeInTheDocument();
   });
 
-  test('renders upload area', () => {
+  test('renders folder selection area', () => {
     render(<App />);
-    expect(screen.getByText('Choose Excel File')).toBeInTheDocument();
-    expect(screen.getByText('Drag and drop your Excel file here or click to browse')).toBeInTheDocument();
+    expect(screen.getByText('Choose Folder')).toBeInTheDocument();
+    expect(screen.getByText('Select a folder containing Excel files (.xls, .xlsx)')).toBeInTheDocument();
   });
 
-  test('renders browse files button', () => {
+  test('renders browse folder button', () => {
     render(<App />);
-    expect(screen.getByText('Browse Files')).toBeInTheDocument();
+    expect(screen.getByText('Browse Folder')).toBeInTheDocument();
   });
 
   test('renders version in footer', () => {
@@ -97,509 +97,487 @@ describe('App Component', () => {
     expect(screen.getByText(/© 2025 Excel Processor/)).toBeInTheDocument();
   });
 
-  test('shows file input when browse button is clicked', () => {
+  test('shows folder input when browse button is clicked', () => {
     render(<App />);
-    const browseButton = screen.getByText('Browse Files');
+    const browseButton = screen.getByText('Browse Folder');
     fireEvent.click(browseButton);
     
-    // The file input should be triggered (though hidden)
-    const fileInput = document.querySelector('input[type="file"]');
-    expect(fileInput).toBeInTheDocument();
+    // The folder input should be triggered (though hidden)
+    const folderInput = document.querySelector('input[type="file"]');
+    expect(folderInput).toBeInTheDocument();
+    expect(folderInput).toHaveAttribute('webkitdirectory');
+    expect(folderInput).toHaveAttribute('multiple');
   });
 
-  test('handles drag over event', () => {
+  test('handles folder selection with Excel files', async () => {
     render(<App />);
-    const uploadArea = screen.getByText('Choose Excel File').closest('.upload-area');
+    const folderInput = document.querySelector('input[type="file"]') as HTMLInputElement;
     
-    fireEvent.dragOver(uploadArea!);
-    expect(uploadArea).toHaveClass('dragover');
-  });
-
-  test('handles drag leave event', () => {
-    render(<App />);
-    const uploadArea = screen.getByText('Choose Excel File').closest('.upload-area');
-    
-    fireEvent.dragOver(uploadArea!);
-    expect(uploadArea).toHaveClass('dragover');
-    
-    fireEvent.dragLeave(uploadArea!);
-    expect(uploadArea).not.toHaveClass('dragover');
-  });
-
-  test('validates file type on drop', async () => {
-    render(<App />);
-    const uploadArea = screen.getByText('Choose Excel File').closest('.upload-area');
-    
-    const file = new File(['test content'], 'test.txt', { type: 'text/plain' });
-    
-    fireEvent.drop(uploadArea!, {
-      dataTransfer: {
-        files: [file]
-      }
-    });
-
-    await waitFor(() => {
-      expect(screen.getByText('Please select an Excel file (.xls or .xlsx)')).toBeInTheDocument();
-    });
-  });
-
-  test('validates file size on drop', async () => {
-    render(<App />);
-    const uploadArea = screen.getByText('Choose Excel File').closest('.upload-area');
-    
-    // Create a mock file that's too large (51MB)
-    const file = new File(['test content'], 'test.xlsx', { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    Object.defineProperty(file, 'size', { value: 51 * 1024 * 1024 });
-    
-    fireEvent.drop(uploadArea!, {
-      dataTransfer: {
-        files: [file]
-      }
-    });
-
-    await waitFor(() => {
-      expect(screen.getByText('File size must be less than 50MB')).toBeInTheDocument();
-    });
-  });
-
-  test('processes valid Excel file on drop', async () => {
-    render(<App />);
-    const uploadArea = screen.getByText('Choose Excel File').closest('.upload-area');
-    
-    const file = new File(['test content'], 'test.xlsx', { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    Object.defineProperty(file, 'size', { value: 1024 });
-    
-    // Mock successful file reading
-    mockFileReader.onload = jest.fn();
-    
-    fireEvent.drop(uploadArea!, {
-      dataTransfer: {
-        files: [file]
-      }
-    });
-
-    // Simulate successful file reading
-    if (mockFileReader.onload) {
-      mockFileReader.onload({ target: { result: new ArrayBuffer(8) } });
-    }
-
-    await waitFor(() => {
-      expect(screen.getByText('📁 File loaded successfully! Ready to process.')).toBeInTheDocument();
-    });
-  });
-
-  test('shows process button after file is loaded', async () => {
-    render(<App />);
-    const uploadArea = screen.getByText('Choose Excel File').closest('.upload-area');
-    
-    const file = new File(['test content'], 'test.xlsx', { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    Object.defineProperty(file, 'size', { value: 1024 });
-    
-    mockFileReader.onload = jest.fn();
-    
-    fireEvent.drop(uploadArea!, {
-      dataTransfer: {
-        files: [file]
-      }
-    });
-
-    if (mockFileReader.onload) {
-      mockFileReader.onload({ target: { result: new ArrayBuffer(8) } });
-    }
-
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Process File' })).toBeInTheDocument();
-    });
-  });
-
-  test('processes file when process button is clicked', async () => {
-    render(<App />);
-    const uploadArea = screen.getByText('Choose Excel File').closest('.upload-area');
-    
-    const file = new File(['test content'], 'test.xlsx', { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    Object.defineProperty(file, 'size', { value: 1024 });
-    
-    fireEvent.drop(uploadArea!, {
-      dataTransfer: { files: [file] }
-    });
-
-    // Simulate the FileReader onload event
-    await act(async () => {
-      if (mockFileReader.onload) {
-        mockFileReader.onload({ target: { result: new ArrayBuffer(8) } });
-      }
-    });
-
-    await waitFor(() => {
-      expect(screen.getByText('test.xlsx')).toBeInTheDocument();
-    });
-
-    const processButton = screen.getByRole('button', { name: 'Process File' });
-    
-    await act(async () => {
-      fireEvent.click(processButton);
-    });
-
-    await waitFor(() => {
-      expect(screen.getByText('✅ File processed successfully! Ready to download.')).toBeInTheDocument();
-    });
-  });
-
-  test('shows download button after processing', async () => {
-    render(<App />);
-    const uploadArea = screen.getByText('Choose Excel File').closest('.upload-area');
-    
-    const file = new File(['test content'], 'test.xlsx', { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    Object.defineProperty(file, 'size', { value: 1024 });
-    
-    fireEvent.drop(uploadArea!, {
-      dataTransfer: { files: [file] }
-    });
-
-    // Simulate the FileReader onload event
-    await act(async () => {
-      if (mockFileReader.onload) {
-        mockFileReader.onload({ target: { result: new ArrayBuffer(8) } });
-      }
-    });
-
-    await waitFor(() => {
-      expect(screen.getByText('test.xlsx')).toBeInTheDocument();
-    });
-
-    const processButton = screen.getByRole('button', { name: 'Process File' });
-    
-    await act(async () => {
-      fireEvent.click(processButton);
-    });
-
-    await waitFor(() => {
-      expect(screen.getByText('Save Processed File')).toBeInTheDocument();
-    });
-  });
-
-  test('handles file processing error', async () => {
-    render(<App />);
-    const uploadArea = screen.getByText('Choose Excel File').closest('.upload-area');
-    
-    const file = new File(['test content'], 'test.xlsx', { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    Object.defineProperty(file, 'size', { value: 1024 });
-    
-    fireEvent.drop(uploadArea!, {
-      dataTransfer: { files: [file] }
-    });
-
-    // Simulate the FileReader onload event
-    await act(async () => {
-      if (mockFileReader.onload) {
-        mockFileReader.onload({ target: { result: new ArrayBuffer(8) } });
-      }
-    });
-
-    await waitFor(() => {
-      expect(screen.getByText('test.xlsx')).toBeInTheDocument();
-    });
-
-    // Mock processing error
-    mockXLSX.write.mockImplementation(() => {
-      throw new Error('Processing failed');
-    });
-
-    const processButton = screen.getByRole('button', { name: 'Process File' });
-    
-    await act(async () => {
-      fireEvent.click(processButton);
-    });
-
-    await waitFor(() => {
-      expect(screen.getByText(/Processing failed/)).toBeInTheDocument();
-    });
-  });
-
-  test('handles file reading error', async () => {
-    render(<App />);
-    const uploadArea = screen.getByText('Choose Excel File').closest('.upload-area');
-    
-    const file = new File(['test content'], 'test.xlsx', { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    Object.defineProperty(file, 'size', { value: 1024 });
-    
-    // Mock XLSX read to throw an error
-    mockXLSX.read.mockImplementation(() => {
-      throw new Error('Error reading Excel file');
-    });
-    
-    fireEvent.drop(uploadArea!, {
-      dataTransfer: {
-        files: [file]
-      }
-    });
-
-    // Simulate successful file reading but XLSX processing fails
-    if (mockFileReader.onload) {
-      mockFileReader.onload({ target: { result: new ArrayBuffer(8) } });
-    }
-
-    await waitFor(() => {
-      expect(screen.getByText(/Error reading Excel file/)).toBeInTheDocument();
-    });
-  });
-
-  test('handles empty file drop', async () => {
-    render(<App />);
-    const uploadArea = screen.getByText('Choose Excel File').closest('.upload-area');
-    
-    fireEvent.drop(uploadArea!, {
-      dataTransfer: { files: [] }
-    });
-
-    // Should not show any error or success message
-    expect(screen.queryByText(/File loaded successfully/)).not.toBeInTheDocument();
-    expect(screen.queryByText(/Please select an Excel file/)).not.toBeInTheDocument();
-  });
-
-  test('handles multiple files drop', async () => {
-    render(<App />);
-    const uploadArea = screen.getByText('Choose Excel File').closest('.upload-area');
-    
-    const file1 = new File(['test content 1'], 'test1.xlsx', { 
+    // Create mock files with webkitRelativePath
+    const file1 = new File(['test content 1'], 'file1.xlsx', { 
       type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
     });
-    const file2 = new File(['test content 2'], 'test2.xlsx', { 
-      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+    const file2 = new File(['test content 2'], 'file2.xls', { 
+      type: 'application/vnd.ms-excel' 
     });
+    const file3 = new File(['test content 3'], 'file3.txt', { 
+      type: 'text/plain' 
+    });
+    
+    Object.defineProperty(file1, 'webkitRelativePath', { value: 'test-folder/file1.xlsx' });
+    Object.defineProperty(file2, 'webkitRelativePath', { value: 'test-folder/file2.xls' });
+    Object.defineProperty(file3, 'webkitRelativePath', { value: 'test-folder/file3.txt' });
     Object.defineProperty(file1, 'size', { value: 1024 });
-    Object.defineProperty(file2, 'size', { value: 1024 });
+    Object.defineProperty(file2, 'size', { value: 2048 });
+    Object.defineProperty(file3, 'size', { value: 512 });
     
-    fireEvent.drop(uploadArea!, {
-      dataTransfer: { files: [file1, file2] }
-    });
-
-    // Should only process the first file
-    await waitFor(() => {
-      expect(screen.getByText('test1.xlsx')).toBeInTheDocument();
-    });
-  });
-
-  test('handles file input change event', async () => {
-    render(<App />);
-    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
-    
-    const file = new File(['test content'], 'test.xlsx', { 
-      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
-    });
-    Object.defineProperty(file, 'size', { value: 1024 });
-    
-    Object.defineProperty(fileInput, 'files', {
-      value: [file],
+    Object.defineProperty(folderInput, 'files', {
+      value: [file1, file2, file3],
       writable: false,
     });
     
-    fireEvent.change(fileInput);
+    fireEvent.change(folderInput);
 
-    // Simulate the FileReader onload event
-    await act(async () => {
-      if (mockFileReader.onload) {
-        mockFileReader.onload({ target: { result: new ArrayBuffer(8) } });
-      }
+    await waitFor(() => {
+      expect(screen.getByText('Found 2 Excel file(s) in the folder')).toBeInTheDocument();
     });
 
     await waitFor(() => {
-      expect(screen.getByText('📁 File loaded successfully! Ready to process.')).toBeInTheDocument();
+      expect(screen.getByText('test-folder')).toBeInTheDocument();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('2 Excel file(s) found')).toBeInTheDocument();
     });
   });
 
-  test('handles file input change with invalid file', async () => {
+  test('handles folder selection with no Excel files', async () => {
     render(<App />);
-    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    const folderInput = document.querySelector('input[type="file"]') as HTMLInputElement;
     
-    const file = new File(['test content'], 'test.txt', { type: 'text/plain' });
+    const file1 = new File(['test content 1'], 'file1.txt', { type: 'text/plain' });
+    const file2 = new File(['test content 2'], 'file2.pdf', { type: 'application/pdf' });
     
-    Object.defineProperty(fileInput, 'files', {
-      value: [file],
+    Object.defineProperty(file1, 'webkitRelativePath', { value: 'test-folder/file1.txt' });
+    Object.defineProperty(file2, 'webkitRelativePath', { value: 'test-folder/file2.pdf' });
+    
+    Object.defineProperty(folderInput, 'files', {
+      value: [file1, file2],
       writable: false,
     });
     
-    fireEvent.change(fileInput);
+    fireEvent.change(folderInput);
 
     await waitFor(() => {
-      expect(screen.getByText('Please select an Excel file (.xls or .xlsx)')).toBeInTheDocument();
+      expect(screen.getByText('No Excel files found in the selected folder')).toBeInTheDocument();
     });
   });
 
-  test('handles download button click', async () => {
+  test('shows Excel files list with checkboxes', async () => {
     render(<App />);
-    const uploadArea = screen.getByText('Choose Excel File').closest('.upload-area');
+    const folderInput = document.querySelector('input[type="file"]') as HTMLInputElement;
     
-    const file = new File(['test content'], 'test.xlsx', { 
+    const file1 = new File(['test content 1'], 'file1.xlsx', { 
       type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
     });
-    Object.defineProperty(file, 'size', { value: 1024 });
-    
-    fireEvent.drop(uploadArea!, {
-      dataTransfer: { files: [file] }
+    const file2 = new File(['test content 2'], 'file2.xls', { 
+      type: 'application/vnd.ms-excel' 
     });
+    
+    Object.defineProperty(file1, 'webkitRelativePath', { value: 'test-folder/file1.xlsx' });
+    Object.defineProperty(file2, 'webkitRelativePath', { value: 'test-folder/file2.xls' });
+    Object.defineProperty(file1, 'size', { value: 1024 });
+    Object.defineProperty(file2, 'size', { value: 2048 });
+    
+    Object.defineProperty(folderInput, 'files', {
+      value: [file1, file2],
+      writable: false,
+    });
+    
+    fireEvent.change(folderInput);
 
-    // Simulate the FileReader onload event
-    await act(async () => {
-      if (mockFileReader.onload) {
-        mockFileReader.onload({ target: { result: new ArrayBuffer(8) } });
-      }
+    await waitFor(() => {
+      expect(screen.getByText('Excel Files Found')).toBeInTheDocument();
     });
 
     await waitFor(() => {
-      expect(screen.getByText('test.xlsx')).toBeInTheDocument();
-    });
-
-    const processButton = screen.getByRole('button', { name: 'Process File' });
-    
-    await act(async () => {
-      fireEvent.click(processButton);
+      expect(screen.getByText('file1.xlsx')).toBeInTheDocument();
     });
 
     await waitFor(() => {
-      expect(screen.getByText('Save Processed File')).toBeInTheDocument();
+      expect(screen.getByText('file2.xls')).toBeInTheDocument();
     });
 
-    const downloadButton = screen.getByText('Save Processed File');
+    // Check for checkboxes
+    const checkboxes = document.querySelectorAll('input[type="checkbox"]');
+    expect(checkboxes).toHaveLength(2);
+  });
+
+  test('handles file selection toggle', async () => {
+    render(<App />);
+    const folderInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    
+    const file1 = new File(['test content 1'], 'file1.xlsx', { 
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+    });
+    
+    Object.defineProperty(file1, 'webkitRelativePath', { value: 'test-folder/file1.xlsx' });
+    Object.defineProperty(file1, 'size', { value: 1024 });
+    
+    Object.defineProperty(folderInput, 'files', {
+      value: [file1],
+      writable: false,
+    });
+    
+    fireEvent.change(folderInput);
+
+    await waitFor(() => {
+      expect(screen.getByText('file1.xlsx')).toBeInTheDocument();
+    });
+
+    const checkbox = document.querySelector('input[type="checkbox"]') as HTMLInputElement;
+    expect(checkbox).not.toBeChecked();
+
+    fireEvent.click(checkbox);
+    expect(checkbox).toBeChecked();
+  });
+
+  test('handles select all files', async () => {
+    render(<App />);
+    const folderInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    
+    const file1 = new File(['test content 1'], 'file1.xlsx', { 
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+    });
+    const file2 = new File(['test content 2'], 'file2.xls', { 
+      type: 'application/vnd.ms-excel' 
+    });
+    
+    Object.defineProperty(file1, 'webkitRelativePath', { value: 'test-folder/file1.xlsx' });
+    Object.defineProperty(file2, 'webkitRelativePath', { value: 'test-folder/file2.xls' });
+    Object.defineProperty(file1, 'size', { value: 1024 });
+    Object.defineProperty(file2, 'size', { value: 2048 });
+    
+    Object.defineProperty(folderInput, 'files', {
+      value: [file1, file2],
+      writable: false,
+    });
+    
+    fireEvent.change(folderInput);
+
+    await waitFor(() => {
+      expect(screen.getByText('Select All')).toBeInTheDocument();
+    });
+
+    const selectAllButton = screen.getByText('Select All');
+    fireEvent.click(selectAllButton);
+
+    const checkboxes = document.querySelectorAll('input[type="checkbox"]');
+    checkboxes.forEach(checkbox => {
+      expect(checkbox).toBeChecked();
+    });
+  });
+
+  test('handles deselect all files', async () => {
+    render(<App />);
+    const folderInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    
+    const file1 = new File(['test content 1'], 'file1.xlsx', { 
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+    });
+    const file2 = new File(['test content 2'], 'file2.xls', { 
+      type: 'application/vnd.ms-excel' 
+    });
+    
+    Object.defineProperty(file1, 'webkitRelativePath', { value: 'test-folder/file1.xlsx' });
+    Object.defineProperty(file2, 'webkitRelativePath', { value: 'test-folder/file2.xls' });
+    Object.defineProperty(file1, 'size', { value: 1024 });
+    Object.defineProperty(file2, 'size', { value: 2048 });
+    
+    Object.defineProperty(folderInput, 'files', {
+      value: [file1, file2],
+      writable: false,
+    });
+    
+    fireEvent.change(folderInput);
+
+    await waitFor(() => {
+      expect(screen.getByText('Select All')).toBeInTheDocument();
+    });
+
+    // First select all
+    const selectAllButton = screen.getByText('Select All');
+    fireEvent.click(selectAllButton);
+
+    // Then deselect all
+    const deselectAllButton = screen.getByText('Deselect All');
+    fireEvent.click(deselectAllButton);
+
+    const checkboxes = document.querySelectorAll('input[type="checkbox"]');
+    checkboxes.forEach(checkbox => {
+      expect(checkbox).not.toBeChecked();
+    });
+  });
+
+  test('shows merge button when files are selected', async () => {
+    render(<App />);
+    const folderInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    
+    const file1 = new File(['test content 1'], 'file1.xlsx', { 
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+    });
+    
+    Object.defineProperty(file1, 'webkitRelativePath', { value: 'test-folder/file1.xlsx' });
+    Object.defineProperty(file1, 'size', { value: 1024 });
+    
+    Object.defineProperty(folderInput, 'files', {
+      value: [file1],
+      writable: false,
+    });
+    
+    fireEvent.change(folderInput);
+
+    await waitFor(() => {
+      expect(screen.getByText('file1.xlsx')).toBeInTheDocument();
+    });
+
+    const checkbox = document.querySelector('input[type="checkbox"]') as HTMLInputElement;
+    fireEvent.click(checkbox);
+
+    await waitFor(() => {
+      expect(screen.getByText('Merge Files')).toBeInTheDocument();
+    });
+  });
+
+  test('handles merge files process', async () => {
+    render(<App />);
+    const folderInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    
+    const file1 = new File(['test content 1'], 'file1.xlsx', { 
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+    });
+    
+    Object.defineProperty(file1, 'webkitRelativePath', { value: 'test-folder/file1.xlsx' });
+    Object.defineProperty(file1, 'size', { value: 1024 });
+    
+    Object.defineProperty(folderInput, 'files', {
+      value: [file1],
+      writable: false,
+    });
+    
+    fireEvent.change(folderInput);
+
+    await waitFor(() => {
+      expect(screen.getByText('file1.xlsx')).toBeInTheDocument();
+    });
+
+    const checkbox = document.querySelector('input[type="checkbox"]') as HTMLInputElement;
+    fireEvent.click(checkbox);
+
+    await waitFor(() => {
+      expect(screen.getByText('Merge Files')).toBeInTheDocument();
+    });
+
+    const mergeButton = screen.getByText('Merge Files');
     
     await act(async () => {
-      fireEvent.click(downloadButton);
+      fireEvent.click(mergeButton);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('✅ Successfully merged 1 file(s)! Ready to save.')).toBeInTheDocument();
+    });
+  });
+
+  test('shows error when trying to merge without selecting files', async () => {
+    render(<App />);
+    const folderInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    
+    const file1 = new File(['test content 1'], 'file1.xlsx', { 
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+    });
+    
+    Object.defineProperty(file1, 'webkitRelativePath', { value: 'test-folder/file1.xlsx' });
+    Object.defineProperty(file1, 'size', { value: 1024 });
+    
+    Object.defineProperty(folderInput, 'files', {
+      value: [file1],
+      writable: false,
+    });
+    
+    fireEvent.change(folderInput);
+
+    await waitFor(() => {
+      expect(screen.getByText('file1.xlsx')).toBeInTheDocument();
+    });
+
+    // Don't select any files, just click merge button directly
+    // This should not be possible since the button only appears when files are selected
+    // But let's test the error handling in the processFiles function
+    const checkbox = document.querySelector('input[type="checkbox"]') as HTMLInputElement;
+    expect(checkbox).not.toBeChecked();
+
+    // The merge button should not be visible
+    expect(screen.queryByText('Merge Files')).not.toBeInTheDocument();
+  });
+
+  test('shows save button after merging files', async () => {
+    render(<App />);
+    const folderInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    
+    const file1 = new File(['test content 1'], 'file1.xlsx', { 
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+    });
+    
+    Object.defineProperty(file1, 'webkitRelativePath', { value: 'test-folder/file1.xlsx' });
+    Object.defineProperty(file1, 'size', { value: 1024 });
+    
+    Object.defineProperty(folderInput, 'files', {
+      value: [file1],
+      writable: false,
+    });
+    
+    fireEvent.change(folderInput);
+
+    await waitFor(() => {
+      expect(screen.getByText('file1.xlsx')).toBeInTheDocument();
+    });
+
+    const checkbox = document.querySelector('input[type="checkbox"]') as HTMLInputElement;
+    fireEvent.click(checkbox);
+
+    await waitFor(() => {
+      expect(screen.getByText('Merge Files')).toBeInTheDocument();
+    });
+
+    const mergeButton = screen.getByText('Merge Files');
+    
+    await act(async () => {
+      fireEvent.click(mergeButton);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Save Merged File' })).toBeInTheDocument();
+    });
+  });
+
+  test('handles save merged file', async () => {
+    render(<App />);
+    const folderInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    
+    const file1 = new File(['test content 1'], 'file1.xlsx', { 
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+    });
+    
+    Object.defineProperty(file1, 'webkitRelativePath', { value: 'test-folder/file1.xlsx' });
+    Object.defineProperty(file1, 'size', { value: 1024 });
+    
+    Object.defineProperty(folderInput, 'files', {
+      value: [file1],
+      writable: false,
+    });
+    
+    fireEvent.change(folderInput);
+
+    await waitFor(() => {
+      expect(screen.getByText('file1.xlsx')).toBeInTheDocument();
+    });
+
+    const checkbox = document.querySelector('input[type="checkbox"]') as HTMLInputElement;
+    fireEvent.click(checkbox);
+
+    await waitFor(() => {
+      expect(screen.getByText('Merge Files')).toBeInTheDocument();
+    });
+
+    const mergeButton = screen.getByText('Merge Files');
+    
+    await act(async () => {
+      fireEvent.click(mergeButton);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Save Merged File' })).toBeInTheDocument();
+    });
+
+    const saveButton = screen.getByRole('button', { name: 'Save Merged File' });
+    
+    await act(async () => {
+      fireEvent.click(saveButton);
     });
 
     // Verify download was triggered
     expect(window.URL.createObjectURL).toHaveBeenCalled();
   });
 
-  test('handles choose new file button click', async () => {
+  test('handles choose new folder button click', async () => {
     render(<App />);
-    const uploadArea = screen.getByText('Choose Excel File').closest('.upload-area');
+    const folderInput = document.querySelector('input[type="file"]') as HTMLInputElement;
     
-    const file = new File(['test content'], 'test.xlsx', { 
+    const file1 = new File(['test content 1'], 'file1.xlsx', { 
       type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
     });
-    Object.defineProperty(file, 'size', { value: 1024 });
     
-    mockFileReader.onload = jest.fn();
+    Object.defineProperty(file1, 'webkitRelativePath', { value: 'test-folder/file1.xlsx' });
+    Object.defineProperty(file1, 'size', { value: 1024 });
     
-    fireEvent.drop(uploadArea!, {
-      dataTransfer: { files: [file] }
+    Object.defineProperty(folderInput, 'files', {
+      value: [file1],
+      writable: false,
     });
-
-    if (mockFileReader.onload) {
-      mockFileReader.onload({ target: { result: new ArrayBuffer(8) } });
-    }
+    
+    fireEvent.change(folderInput);
 
     await waitFor(() => {
-      expect(screen.getByText('Choose New File')).toBeInTheDocument();
+      expect(screen.getByText('Choose New Folder')).toBeInTheDocument();
     });
 
-    const chooseNewFileButton = screen.getByText('Choose New File');
-    fireEvent.click(chooseNewFileButton);
+    const chooseNewFolderButton = screen.getByText('Choose New Folder');
+    fireEvent.click(chooseNewFolderButton);
 
     await waitFor(() => {
-      expect(screen.getByText('📁 Ready to select a new file')).toBeInTheDocument();
+      expect(screen.getByText('📁 Ready to select a new folder')).toBeInTheDocument();
     });
   });
 
-  test('handles browse files button click', () => {
+  test('handles empty folder selection', async () => {
     render(<App />);
-    const browseButton = screen.getByText('Browse Files');
+    const folderInput = document.querySelector('input[type="file"]') as HTMLInputElement;
     
-    fireEvent.click(browseButton);
-    
-    // The file input should be triggered (though hidden)
-    const fileInput = document.querySelector('input[type="file"]');
-    expect(fileInput).toBeInTheDocument();
-  });
-
-  test('handles upload area click', () => {
-    render(<App />);
-    const uploadArea = screen.getByText('Choose Excel File').closest('.upload-area');
-    
-    fireEvent.click(uploadArea!);
-    
-    // The file input should be triggered
-    const fileInput = document.querySelector('input[type="file"]');
-    expect(fileInput).toBeInTheDocument();
-  });
-
-  test('handles drag over with preventDefault', () => {
-    render(<App />);
-    const uploadArea = screen.getByText('Choose Excel File').closest('.upload-area');
-    
-    fireEvent.dragOver(uploadArea!);
-    
-    expect(uploadArea).toHaveClass('dragover');
-  });
-
-  test('handles drop with preventDefault', () => {
-    render(<App />);
-    const uploadArea = screen.getByText('Choose Excel File').closest('.upload-area');
-    
-    const file = new File(['test content'], 'test.xlsx', { 
-      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
-    });
-    Object.defineProperty(file, 'size', { value: 1024 });
-    
-    fireEvent.drop(uploadArea!, {
-      dataTransfer: { files: [file] }
+    Object.defineProperty(folderInput, 'files', {
+      value: [],
+      writable: false,
     });
     
-    // The drop should be handled without errors
-    expect(uploadArea).not.toHaveClass('dragover');
-  });
+    fireEvent.change(folderInput);
 
-  test('resets application state when choose new file is clicked', async () => {
-    render(<App />);
-    const uploadArea = screen.getByText('Choose Excel File').closest('.upload-area');
-    
-    const file = new File(['test content'], 'test.xlsx', { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    Object.defineProperty(file, 'size', { value: 1024 });
-    
-    mockFileReader.onload = jest.fn();
-    
-    fireEvent.drop(uploadArea!, {
-      dataTransfer: { files: [file] }
-    });
-
-    if (mockFileReader.onload) {
-      mockFileReader.onload({ target: { result: new ArrayBuffer(8) } });
-    }
-
-    await waitFor(() => {
-      expect(screen.getByText('Choose New File')).toBeInTheDocument();
-    });
-
-    const chooseNewFileButton = screen.getByText('Choose New File');
-    fireEvent.click(chooseNewFileButton);
-
-    await waitFor(() => {
-      expect(screen.getByText('📁 Ready to select a new file')).toBeInTheDocument();
-    });
+    // Should not show any error or success message for empty selection
+    expect(screen.queryByText(/Found.*Excel file/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/No Excel files found/)).not.toBeInTheDocument();
   });
 
   test('auto-hides success messages after 8 seconds', async () => {
     jest.useFakeTimers();
     render(<App />);
     
-    // Trigger a success message
-    const uploadArea = screen.getByText('Choose Excel File').closest('.upload-area');
-    const file = new File(['test content'], 'test.xlsx', { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    Object.defineProperty(file, 'size', { value: 1024 });
+    const folderInput = document.querySelector('input[type="file"]') as HTMLInputElement;
     
-    fireEvent.drop(uploadArea!, {
-      dataTransfer: { files: [file] }
+    const file1 = new File(['test content 1'], 'file1.xlsx', { 
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
     });
-
-    // Simulate the FileReader onload event
-    await act(async () => {
-      if (mockFileReader.onload) {
-        mockFileReader.onload({ target: { result: new ArrayBuffer(8) } });
-      }
+    
+    Object.defineProperty(file1, 'webkitRelativePath', { value: 'test-folder/file1.xlsx' });
+    Object.defineProperty(file1, 'size', { value: 1024 });
+    
+    Object.defineProperty(folderInput, 'files', {
+      value: [file1],
+      writable: false,
     });
+    
+    fireEvent.change(folderInput);
 
     await waitFor(() => {
-      expect(screen.getByText('📁 File loaded successfully! Ready to process.')).toBeInTheDocument();
+      expect(screen.getByText('Found 1 Excel file(s) in the folder')).toBeInTheDocument();
     });
 
     // Fast-forward time by 8 seconds
@@ -608,200 +586,64 @@ describe('App Component', () => {
     });
 
     await waitFor(() => {
-      expect(screen.queryByText('📁 File loaded successfully! Ready to process.')).not.toBeInTheDocument();
+      expect(screen.queryByText('Found 1 Excel file(s) in the folder')).not.toBeInTheDocument();
     });
 
     jest.useRealTimers();
   });
 
-  test('handles FileReader onerror event', async () => {
+  test('handles save error gracefully', async () => {
     render(<App />);
-    const uploadArea = screen.getByText('Choose Excel File').closest('.upload-area');
+    const folderInput = document.querySelector('input[type="file"]') as HTMLInputElement;
     
-    const file = new File(['test content'], 'test.xlsx', { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    Object.defineProperty(file, 'size', { value: 1024 });
+    const file1 = new File(['test content 1'], 'file1.xlsx', { 
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+    });
     
-    fireEvent.drop(uploadArea!, {
-      dataTransfer: { files: [file] }
+    Object.defineProperty(file1, 'webkitRelativePath', { value: 'test-folder/file1.xlsx' });
+    Object.defineProperty(file1, 'size', { value: 1024 });
+    
+    Object.defineProperty(folderInput, 'files', {
+      value: [file1],
+      writable: false,
     });
-
-    // Simulate the FileReader onerror event
-    await act(async () => {
-      if (mockFileReader.onerror) {
-        mockFileReader.onerror({} as any);
-      }
-    });
+    
+    fireEvent.change(folderInput);
 
     await waitFor(() => {
-      expect(screen.getByText('Error reading file')).toBeInTheDocument();
+      expect(screen.getByText('file1.xlsx')).toBeInTheDocument();
     });
-  });
 
-  test('shows error when processing without file', async () => {
-    render(<App />);
-    
-    // Upload a file but don't simulate the FileReader onload event
-    // This means workbookData will be null
-    const uploadArea = screen.getByText('Choose Excel File').closest('.upload-area');
-    const file = new File(['test content'], 'test.xlsx', { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    Object.defineProperty(file, 'size', { value: 1024 });
-    
-    fireEvent.drop(uploadArea!, {
-      dataTransfer: { files: [file] }
-    });
+    const checkbox = document.querySelector('input[type="checkbox"]') as HTMLInputElement;
+    fireEvent.click(checkbox);
 
     await waitFor(() => {
-      expect(screen.getByText('test.xlsx')).toBeInTheDocument();
+      expect(screen.getByText('Merge Files')).toBeInTheDocument();
     });
 
-    // The Process File button should be disabled because workbookData is null
-    const processButton = screen.getByRole('button', { name: 'Process File' });
-    expect(processButton).toBeDisabled();
-    
-    // Since the button is disabled, we can't click it to test the error message
-    // Instead, let's test that the button is properly disabled when workbookData is null
-    expect(processButton).toHaveAttribute('disabled');
-  });
-
-
-  test('shows error when downloading without processed file', async () => {
-    render(<App />);
-    
-    // Upload a file and simulate FileReader onload to get workbookData
-    const uploadArea = screen.getByText('Choose Excel File').closest('.upload-area');
-    const file = new File(['test content'], 'test.xlsx', { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    Object.defineProperty(file, 'size', { value: 1024 });
-    
-    fireEvent.drop(uploadArea!, {
-      dataTransfer: { files: [file] }
-    });
-
-    // Simulate the FileReader onload event
-    await act(async () => {
-      if (mockFileReader.onload) {
-        mockFileReader.onload({ target: { result: new ArrayBuffer(8) } });
-      }
-    });
-
-    await waitFor(() => {
-      expect(screen.getByText('test.xlsx')).toBeInTheDocument();
-    });
-
-    const processButton = screen.getByRole('button', { name: 'Process File' });
+    const mergeButton = screen.getByText('Merge Files');
     
     await act(async () => {
-      fireEvent.click(processButton);
+      fireEvent.click(mergeButton);
     });
 
     await waitFor(() => {
-      expect(screen.getByText('Save Processed File')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Save Merged File' })).toBeInTheDocument();
     });
 
-    // Now clear the processedWorkbookData state to simulate error condition
-    // We need to trigger a re-render with processedWorkbookData = null
-    // This is tricky in tests, so let's test the actual error condition
-    // by clicking download when processedWorkbookData is somehow null
-    
-    // Let's test a different approach - test the actual error condition
-    // by mocking the download function to throw an error
-    const downloadButton = screen.getByText('Save Processed File');
-    
     // Mock XLSX.write to throw an error
     mockXLSX.write.mockImplementationOnce(() => {
-      throw new Error('Download failed');
-    });
-    
-    fireEvent.click(downloadButton);
-
-    expect(screen.getByText('Download failed: Download failed')).toBeInTheDocument();
-  });
-
-  test('download button is only shown when file is processed', async () => {
-    render(<App />);
-    
-    // Upload a file and simulate FileReader onload to get workbookData
-    const uploadArea = screen.getByText('Choose Excel File').closest('.upload-area');
-    const file = new File(['test content'], 'test.xlsx', { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    Object.defineProperty(file, 'size', { value: 1024 });
-    
-    fireEvent.drop(uploadArea!, {
-      dataTransfer: { files: [file] }
+      throw new Error('Save failed');
     });
 
-    // Simulate the FileReader onload event
+    const saveButton = screen.getByRole('button', { name: 'Save Merged File' });
+    
     await act(async () => {
-      if (mockFileReader.onload) {
-        mockFileReader.onload({ target: { result: new ArrayBuffer(8) } });
-      }
+      fireEvent.click(saveButton);
     });
 
     await waitFor(() => {
-      expect(screen.getByText('test.xlsx')).toBeInTheDocument();
+      expect(screen.getByText('Save failed: Save failed')).toBeInTheDocument();
     });
-
-    const processButton = screen.getByRole('button', { name: 'Process File' });
-    
-    await act(async () => {
-      fireEvent.click(processButton);
-    });
-
-    await waitFor(() => {
-      expect(screen.getByText('Save Processed File')).toBeInTheDocument();
-    });
-
-    // The download button should only be visible after processing
-    expect(screen.getByText('Save Processed File')).toBeInTheDocument();
-  });
-
-  test('handles download errors gracefully', async () => {
-    render(<App />);
-    const uploadArea = screen.getByText('Choose Excel File').closest('.upload-area');
-    
-    const file = new File(['test content'], 'test.xlsx', { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    Object.defineProperty(file, 'size', { value: 1024 });
-    
-    fireEvent.drop(uploadArea!, {
-      dataTransfer: { files: [file] }
-    });
-
-    // Simulate the FileReader onload event
-    await act(async () => {
-      if (mockFileReader.onload) {
-        mockFileReader.onload({ target: { result: new ArrayBuffer(8) } });
-      }
-    });
-
-    await waitFor(() => {
-      expect(screen.getByText('test.xlsx')).toBeInTheDocument();
-    });
-
-    const processButton = screen.getByRole('button', { name: 'Process File' });
-    
-    await act(async () => {
-      fireEvent.click(processButton);
-    });
-
-    await waitFor(() => {
-      expect(screen.getByText('Save Processed File')).toBeInTheDocument();
-    });
-
-    // Mock URL.createObjectURL to throw an error
-    const originalCreateObjectURL = window.URL.createObjectURL;
-    window.URL.createObjectURL = jest.fn(() => {
-      throw new Error('Download failed');
-    });
-
-    const downloadButton = screen.getByText('Save Processed File');
-    
-    await act(async () => {
-      fireEvent.click(downloadButton);
-    });
-
-    await waitFor(() => {
-      expect(screen.getByText(/Download failed/)).toBeInTheDocument();
-    });
-
-    // Restore original function
-    window.URL.createObjectURL = originalCreateObjectURL;
   });
 });

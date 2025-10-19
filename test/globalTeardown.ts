@@ -32,3 +32,4 @@ afterAll(() => {
 });
 
 console.log('🧹 Test environment cleaned up');
+

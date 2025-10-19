@@ -13,6 +13,26 @@ const request = require('supertest');
 const express = require('express');
 const path = require('path');
 const cors = require('cors');
+const fs = require('fs');
+
+// Mock fs.existsSync to avoid file system issues in tests
+const originalExistsSync = fs.existsSync;
+fs.existsSync = jest.fn().mockImplementation((filePath) => {
+  // Mock that build directory exists
+  if (filePath.includes('build')) {
+    return true;
+  }
+  return originalExistsSync(filePath);
+});
+
+// Mock fs.readFileSync to return mock HTML content
+const originalReadFileSync = fs.readFileSync;
+fs.readFileSync = jest.fn().mockImplementation((filePath) => {
+  if (filePath.includes('index.html')) {
+    return '<!doctype html><html><head><title>Excel File Processor</title></head><body><div id="root"></div></body></html>';
+  }
+  return originalReadFileSync(filePath);
+});
 
 // Mock the server module
 const createServer = () => {
@@ -59,8 +79,6 @@ describe('Backend Server', () => {
 
   describe('Static File Serving', () => {
     test('serves static files from build directory', async () => {
-      // This test would require the build directory to exist
-      // For now, we'll test the route exists
       const response = await request(app)
         .get('/')
         .expect(200);
@@ -118,8 +136,6 @@ describe('Server Configuration', () => {
 });
 
 describe('Build Script Tests', () => {
-  const { execSync } = require('child_process');
-
   test('build script exists and is executable', () => {
     // This test checks if the build script can be found
     const fs = require('fs');

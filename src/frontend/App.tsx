@@ -1,5 +1,7 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import './App.css';
+import { useLanguage, formatMessage } from '../contexts/LanguageContext';
+import LanguageSelector from '../components/LanguageSelector';
 
 // Version constant - update this when releasing new versions
 const APP_VERSION = '1.0.0';
@@ -15,19 +17,19 @@ interface ExcelFile {
   size: number;
   data: any;
   selected: boolean;
+  path: string; // Store the full path for later use
 }
 
 type MessageType = 'success' | 'error' | 'info';
 
 const App: React.FC = () => {
+  const { t } = useLanguage();
   const [selectedFolder, setSelectedFolder] = useState<string>('');
   const [excelFiles, setExcelFiles] = useState<ExcelFile[]>([]);
   const [processedWorkbookData, setProcessedWorkbookData] = useState<any>(null);
-  const [isDragOver, setIsDragOver] = useState(false);
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState<MessageType>('info');
   
-  const folderInputRef = useRef<HTMLInputElement>(null);
 
   const showMessage = (messageText: string, type: MessageType) => {
     setMessage(messageText);
@@ -41,37 +43,42 @@ const App: React.FC = () => {
     }
   };
 
-  const onFolderSelected = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const target = event.target;
-    if (target.files && target.files.length > 0) {
-      const folderPath = target.files[0].webkitRelativePath.split('/')[0];
-      setSelectedFolder(folderPath);
-      scanFolderForExcelFiles(target.files);
-    }
-  };
 
-  const scanFolderForExcelFiles = (files: FileList) => {
-    const excelFilesList: ExcelFile[] = [];
-    
-    Array.from(files).forEach(file => {
-      if (file.name.match(/\.(xlsx?)$/i)) {
-        excelFilesList.push({
-          name: file.name,
-          size: file.size,
-          data: null,
-          selected: false
-        });
+  const handleFolderSelection = async () => {
+    try {
+      // Use File System Access API to avoid browser upload messages
+      const dirHandle = await (window as any).showDirectoryPicker();
+      const excelFilesList: ExcelFile[] = [];
+      
+      // Read directory entries without accessing file content
+      for await (const [name, handle] of dirHandle.entries()) {
+        if (handle.kind === 'file' && (name.endsWith('.xls') || name.endsWith('.xlsx'))) {
+          const file = await handle.getFile();
+          excelFilesList.push({
+            name: file.name,
+            size: file.size,
+            data: null, // No file content loaded
+            selected: false,
+            path: name
+          });
+        }
       }
-    });
-
-    if (excelFilesList.length === 0) {
-      showMessage('No Excel files found in the selected folder', 'error');
-      return;
+      
+      setSelectedFolder(dirHandle.name);
+      setExcelFiles(excelFilesList);
+      
+      if (excelFilesList.length === 0) {
+        showMessage(t.messages.noExcelFilesInFolder, 'info');
+      } else {
+        showMessage(formatMessage(t.messages.foundExcelFiles, { count: excelFilesList.length }), 'success');
+      }
+    } catch (error: any) {
+      if (error.name !== 'AbortError') {
+        showMessage(t.messages.browserNotSupported, 'error');
+      }
     }
-
-    setExcelFiles(excelFilesList);
-    showMessage(`Found ${excelFilesList.length} Excel file(s) in the folder`, 'success');
   };
+
 
   const toggleFileSelection = (index: number) => {
     const updatedFiles = [...excelFiles];
@@ -89,39 +96,53 @@ const App: React.FC = () => {
     setExcelFiles(updatedFiles);
   };
 
+  const loadSelectedFiles = async (files: ExcelFile[]): Promise<any[]> => {
+    const loadedFiles: any[] = [];
+    
+    for (const file of files) {
+      if (file.selected) {
+        try {
+          // In a real implementation, you would load the file from the stored path
+          // For now, we'll simulate loading the file
+          const simulatedWorkbook = {
+            name: file.name,
+            sheets: ['Sheet1', 'Sheet2'], // Simulated sheet names
+            data: {} // Simulated data
+          };
+          loadedFiles.push(simulatedWorkbook);
+        } catch (error) {
+          console.error(`Error loading file ${file.name}:`, error);
+          throw new Error(formatMessage(t.messages.failedToLoadFile, { fileName: file.name }));
+        }
+      }
+    }
+    
+    return loadedFiles;
+  };
+
   const processFiles = async () => {
     const selectedFiles = excelFiles.filter(file => file.selected);
     
     if (selectedFiles.length === 0) {
-      showMessage('Please select at least one Excel file to process', 'error');
+      showMessage(t.messages.selectAtLeastOneFile, 'error');
       return;
     }
 
     try {
-      showMessage('Processing selected files...', 'info');
+      showMessage(t.messages.loadingAndProcessing, 'info');
       
-      // Read all selected files
-      const workbooks = await Promise.all(
-        selectedFiles.map(async (file, index) => {
-          // For now, we'll simulate reading files since we can't actually read them from folder selection
-          // In a real implementation, you'd need to use a file API or backend service
-          return {
-            name: file.name,
-            sheets: [`Sheet${index + 1}`],
-            data: null // This would contain actual workbook data
-          };
-        })
-      );
+      // Load only the selected files
+      const workbooks = await loadSelectedFiles(excelFiles);
 
       // Create merged workbook
       const mergedWorkbook = {
-        SheetNames: [],
-        Sheets: {}
+        SheetNames: [] as string[],
+        Sheets: {} as { [key: string]: any }
       };
 
       // Merge all sheets from all workbooks
       workbooks.forEach((workbook, workbookIndex) => {
-        workbook.sheets.forEach((sheetName, sheetIndex) => {
+        workbook.sheets.forEach((sheetName: string, sheetIndex: number) => {
           const mergedSheetName = `${workbook.name.replace(/\.(xlsx?)$/i, '')}_${sheetName}`;
           mergedWorkbook.SheetNames.push(mergedSheetName);
           // In real implementation, you'd merge actual sheet data here
@@ -130,22 +151,22 @@ const App: React.FC = () => {
       });
 
       setProcessedWorkbookData(mergedWorkbook);
-      showMessage(`✅ Successfully merged ${selectedFiles.length} file(s)! Ready to save.`, 'success');
+      showMessage(formatMessage(t.messages.successfullyMerged, { count: selectedFiles.length }), 'success');
       
     } catch (error) {
       console.error('Processing error:', error);
-      showMessage('Processing failed: ' + (error as Error).message, 'error');
+      showMessage(formatMessage(t.messages.processingFailed, { error: (error as Error).message }), 'error');
     }
   };
 
   const saveMergedFile = () => {
     if (!processedWorkbookData) {
-      showMessage('Please process files first', 'error');
+      showMessage(t.messages.pleaseProcessFilesFirst, 'error');
       return;
     }
     
     if (!selectedFolder) {
-      showMessage('Please select a folder first', 'error');
+      showMessage(t.messages.pleaseSelectFolderFirst, 'error');
       return;
     }
     
@@ -179,12 +200,12 @@ const App: React.FC = () => {
       
       // Add a small delay to ensure download has started
       setTimeout(() => {
-        showMessage(`📥 Merged file saved successfully! Saved to: ${selectedFolder}`, 'success');
+        showMessage(formatMessage(t.messages.mergedFileSaved, { folder: selectedFolder }), 'success');
       }, 500);
       
     } catch (error) {
       console.error('Save error:', error);
-      showMessage('Save failed: ' + (error as Error).message, 'error');
+      showMessage(formatMessage(t.messages.saveFailed, { error: (error as Error).message }), 'error');
     }
   };
 
@@ -196,13 +217,13 @@ const App: React.FC = () => {
     setMessage('');
     
     // Show message
-    showMessage('📁 Ready to select a new folder', 'info');
+    showMessage(t.messages.readyToSelectNewFolder, 'info');
   };
 
   const formatFileSize = (bytes: number): string => {
-    if (bytes === 0) return '0 Bytes';
+    if (bytes === 0) return `0 ${t.fileSizeUnits.bytes}`;
     const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const sizes = [t.fileSizeUnits.bytes, t.fileSizeUnits.kb, t.fileSizeUnits.mb, t.fileSizeUnits.gb];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
@@ -210,91 +231,100 @@ const App: React.FC = () => {
   return (
     <div className="container">
       <header>
-        <h1>Excel File Merger</h1>
-        <p>Select a folder, choose Excel files, and merge them into one file</p>
+        <div className="header-top">
+          <div className="header-content">
+            <h1>{t.appTitle}</h1>
+            <p>{t.appSubtitle}</p>
+          </div>
+          <LanguageSelector />
+        </div>
       </header>
 
       <main>
-        <div className="upload-section">
-          <div className="upload-area">
-            <div className="upload-content">
-              <div className="upload-icon">📁</div>
-              <h3>Choose Folder</h3>
-              <p>Select a folder containing Excel files (.xls, .xlsx)</p>
-              <input 
-                type="file" 
-                ref={folderInputRef}
-                webkitdirectory=""
-                directory=""
-                multiple
-                style={{ display: 'none' }}
-                onChange={onFolderSelected}
-              />
-              <button 
-                type="button" 
-                className="btn btn-primary" 
-                onClick={() => folderInputRef.current?.click()}
-              >
-                Browse Folder
-              </button>
+        {!selectedFolder ? (
+          <div className="folder-selection-section">
+            <div className="folder-selection-area">
+              <div className="folder-selection-content">
+                <div className="folder-icon">📁</div>
+                <h3>{t.selectFolder}</h3>
+                <p>{t.selectFolderDescription}</p>
+                
+                
+                <div className="selection-options">
+                  <button 
+                    type="button" 
+                    className="btn btn-primary" 
+                    onClick={handleFolderSelection}
+                  >
+                    {t.selectFolder}
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
-          
-          {selectedFolder && (
-            <div className="folder-info">
-              <div className="folder-details">
-                <span className="folder-icon">📁</span>
-                <span className="folder-name">{selectedFolder}</span>
-                <span className="file-count">{excelFiles.length} Excel file(s) found</span>
-              </div>
-              <button 
-                type="button" 
-                className="btn btn-secondary btn-small" 
-                onClick={chooseNewFolder}
-              >
-                Choose New Folder
-              </button>
+        ) : (
+          <div className="folder-info">
+            <div className="folder-details">
+              <span className="folder-icon">📁</span>
+              <span className="folder-name">{selectedFolder}</span>
+              <span className="file-count">{formatMessage(t.excelFilesFound, { count: excelFiles.length })}</span>
             </div>
-          )}
-        </div>
+            <button 
+              type="button" 
+              className="btn btn-secondary btn-small" 
+              onClick={chooseNewFolder}
+            >
+              {t.chooseNewFolder}
+            </button>
+          </div>
+        )}
 
-        {excelFiles.length > 0 && (
+        {selectedFolder && (
           <div className="files-section">
             <div className="section-header">
-              <h3>Excel Files Found</h3>
-              <p>Select the files you want to merge</p>
-              <div className="file-controls">
-                <button 
-                  type="button" 
-                  className="btn btn-small btn-secondary" 
-                  onClick={selectAllFiles}
-                >
-                  Select All
-                </button>
-                <button 
-                  type="button" 
-                  className="btn btn-small btn-secondary" 
-                  onClick={deselectAllFiles}
-                >
-                  Deselect All
-                </button>
-              </div>
+              <h3>{t.excelFilesFoundTitle}</h3>
+              <p>{t.selectFilesToMerge}</p>
+              {excelFiles.length > 0 && (
+                <div className="file-controls">
+                  <button 
+                    type="button" 
+                    className="btn btn-small btn-secondary" 
+                    onClick={selectAllFiles}
+                  >
+                    {t.selectAll}
+                  </button>
+                  <button 
+                    type="button" 
+                    className="btn btn-small btn-secondary" 
+                    onClick={deselectAllFiles}
+                  >
+                    {t.deselectAll}
+                  </button>
+                </div>
+              )}
             </div>
             <div className="files-list">
-              {excelFiles.map((file, index) => (
-                <div key={index} className="file-item">
-                  <label className="file-checkbox">
-                    <input
-                      type="checkbox"
-                      checked={file.selected}
-                      onChange={() => toggleFileSelection(index)}
-                    />
-                    <span className="file-icon">📄</span>
-                    <span className="file-name">{file.name}</span>
-                    <span className="file-size">{formatFileSize(file.size)}</span>
-                  </label>
+              {excelFiles.length > 0 ? (
+                excelFiles.map((file, index) => (
+                  <div key={index} className="file-item">
+                    <label className="file-checkbox">
+                      <input
+                        type="checkbox"
+                        checked={file.selected}
+                        onChange={() => toggleFileSelection(index)}
+                      />
+                      <span className="file-icon">📄</span>
+                      <span className="file-name">{file.name}</span>
+                      <span className="file-size">{formatFileSize(file.size)}</span>
+                    </label>
+                  </div>
+                ))
+              ) : (
+                <div className="no-files-message">
+                  <p>{t.noExcelFilesFound}</p>
+                  <p>{t.noExcelFilesSuggestion}</p>
                 </div>
-              ))}
+              )}
             </div>
           </div>
         )}
@@ -302,15 +332,15 @@ const App: React.FC = () => {
         {excelFiles.some(file => file.selected) && (
           <div className="process-section">
             <div className="section-header">
-              <h3>Merge Selected Files</h3>
-              <p>Click the button below to merge your selected Excel files</p>
+              <h3>{t.mergeSelectedFiles}</h3>
+              <p>{t.mergeFilesDescription}</p>
             </div>
             <button 
               type="button" 
               className="btn btn-warning" 
               onClick={processFiles}
             >
-              Merge Files
+              {t.mergeFiles}
             </button>
           </div>
         )}
@@ -318,15 +348,15 @@ const App: React.FC = () => {
         {processedWorkbookData && (
           <div className="download-section">
             <div className="section-header">
-              <h3>Save Merged File</h3>
-              <p>Your files have been merged successfully</p>
+              <h3>{t.saveMergedFile}</h3>
+              <p>{t.saveMergedFileDescription}</p>
             </div>
             <button 
               type="button" 
               className="btn btn-success" 
               onClick={saveMergedFile}
             >
-              Save Merged File
+              {t.saveMergedFile}
             </button>
           </div>
         )}
@@ -339,8 +369,8 @@ const App: React.FC = () => {
       </main>
 
       <footer>
-        <p>&copy; 2025 Excel Processor. Built with React and Node.js.</p>
-        <p className="version-info">Version {APP_VERSION}</p>
+        <p>{t.footer.copyright}</p>
+        <p className="version-info">{formatMessage(t.footer.version, { version: APP_VERSION })}</p>
       </footer>
     </div>
   );

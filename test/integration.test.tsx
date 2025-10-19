@@ -6,6 +6,16 @@ import '@testing-library/jest-dom';
 jest.mock('../src/frontend/App.css', () => ({}));
 
 import App from '../src/frontend/App';
+import { LanguageProvider } from '../src/contexts/LanguageContext';
+
+// Helper function to render App with LanguageProvider
+const renderApp = () => {
+  return render(
+    React.createElement(LanguageProvider, null,
+      React.createElement(App)
+    )
+  );
+};
 
 // Mock XLSX library
 const mockXLSX = {
@@ -109,7 +119,7 @@ describe('Excel File Processor Integration Tests', () => {
 
       (window as any).showDirectoryPicker.mockResolvedValue(mockDirectoryHandle);
 
-      render(<App />);
+      renderApp();
       
       // Step 1: Select folder
       const selectButton = screen.getByRole('button', { name: 'Select Folder' });
@@ -189,7 +199,7 @@ describe('Excel File Processor Integration Tests', () => {
         .mockResolvedValueOnce({ ...mockDirectoryHandle, name: 'folder1' })
         .mockResolvedValueOnce({ ...mockDirectoryHandle, name: 'folder2' });
 
-      render(<App />);
+      renderApp();
       
       // First folder selection
       const selectButton = screen.getByRole('button', { name: 'Select Folder' });
@@ -247,7 +257,7 @@ describe('Excel File Processor Integration Tests', () => {
 
       (window as any).showDirectoryPicker.mockResolvedValue(mockDirectoryHandle);
 
-      render(<App />);
+      renderApp();
       
       const selectButton = screen.getByRole('button', { name: 'Select Folder' });
       
@@ -280,7 +290,7 @@ describe('Excel File Processor Integration Tests', () => {
 
       (window as any).showDirectoryPicker.mockResolvedValue(mockDirectoryHandle);
 
-      render(<App />);
+      renderApp();
       
       const selectButton = screen.getByRole('button', { name: 'Select Folder' });
       
@@ -326,7 +336,7 @@ describe('Excel File Processor Integration Tests', () => {
 
       (window as any).showDirectoryPicker.mockResolvedValue(mockDirectoryHandle);
 
-      render(<App />);
+      renderApp();
       
       const selectButton = screen.getByRole('button', { name: 'Select Folder' });
       
@@ -387,7 +397,7 @@ describe('Excel File Processor Integration Tests', () => {
 
       (window as any).showDirectoryPicker.mockResolvedValue(mockDirectoryHandle);
 
-      render(<App />);
+      renderApp();
       
       // Initial state
       expect(screen.getByText('Excel File Processor')).toBeInTheDocument();
@@ -426,7 +436,7 @@ describe('Excel File Processor Integration Tests', () => {
 
       (window as any).showDirectoryPicker.mockResolvedValue(mockDirectoryHandle);
 
-      render(<App />);
+      renderApp();
       
       const selectButton = screen.getByRole('button', { name: 'Select Folder' });
       
@@ -477,7 +487,7 @@ describe('Excel File Processor Integration Tests', () => {
 
       (window as any).showDirectoryPicker.mockResolvedValue(mockDirectoryHandle);
 
-      render(<App />);
+      renderApp();
       
       const selectButton = screen.getByRole('button', { name: 'Select Folder' });
       

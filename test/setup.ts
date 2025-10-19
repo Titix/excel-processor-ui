@@ -188,6 +188,12 @@ if (!global.Uint8Array) {
 
 // Setup DOM container for each test
 beforeEach(() => {
+  // Clear any existing root element
+  const existingRoot = document.getElementById('root');
+  if (existingRoot) {
+    existingRoot.remove();
+  }
+  
   // Create a div element for React to render into
   const div = document.createElement('div');
   div.id = 'root';

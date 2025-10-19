@@ -6,6 +6,16 @@ import '@testing-library/jest-dom';
 jest.mock('../src/frontend/App.css', () => ({}));
 
 import App from '../src/frontend/App';
+import { LanguageProvider } from '../src/contexts/LanguageContext';
+
+// Helper function to render App with LanguageProvider
+const renderApp = () => {
+  return render(
+    React.createElement(LanguageProvider, null,
+      React.createElement(App)
+    )
+  );
+};
 
 // Mock XLSX library
 const mockXLSX = {
@@ -93,29 +103,29 @@ describe('App Component - Excel File Processor', () => {
   });
 
   describe('Initial Render', () => {
-    test('renders main heading', () => {
-      render(<App />);
+  test('renders main heading', () => {
+      renderApp();
       expect(screen.getByText('Excel File Processor')).toBeInTheDocument();
     });
 
     test('renders folder selection area', () => {
-      render(<App />);
+      renderApp();
       expect(screen.getByRole('heading', { name: 'Select Folder' })).toBeInTheDocument();
       expect(screen.getByText('Choose a folder to scan for Excel files')).toBeInTheDocument();
     });
 
     test('renders select folder button', () => {
-      render(<App />);
+      renderApp();
       expect(screen.getByRole('button', { name: 'Select Folder' })).toBeInTheDocument();
-    });
+  });
 
-    test('renders version in footer', () => {
-      render(<App />);
-      expect(screen.getByText('Version 1.0.0')).toBeInTheDocument();
-    });
+  test('renders version in footer', () => {
+      renderApp();
+    expect(screen.getByText('Version 1.0.0')).toBeInTheDocument();
+  });
 
-    test('renders copyright in footer', () => {
-      render(<App />);
+  test('renders copyright in footer', () => {
+      renderApp();
       expect(screen.getByText('© 2025 Excel Processor. Built with React and Node.js.')).toBeInTheDocument();
     });
   });
@@ -138,7 +148,7 @@ describe('App Component - Excel File Processor', () => {
 
       (window as any).showDirectoryPicker.mockResolvedValue(mockDirectoryHandle);
 
-      render(<App />);
+      renderApp();
       
       const selectButton = screen.getByRole('button', { name: 'Select Folder' });
       
@@ -170,15 +180,15 @@ describe('App Component - Excel File Processor', () => {
 
       (window as any).showDirectoryPicker.mockResolvedValue(mockDirectoryHandle);
 
-      render(<App />);
+      renderApp();
       
       const selectButton = screen.getByRole('button', { name: 'Select Folder' });
       
       await act(async () => {
         fireEvent.click(selectButton);
-      });
+    });
 
-      await waitFor(() => {
+    await waitFor(() => {
         expect(screen.getByText('No Excel files found in the selected folder')).toBeInTheDocument();
       });
 
@@ -190,7 +200,7 @@ describe('App Component - Excel File Processor', () => {
       abortError.name = 'AbortError';
       (window as any).showDirectoryPicker.mockRejectedValue(abortError);
 
-      render(<App />);
+      renderApp();
       
       const selectButton = screen.getByRole('button', { name: 'Select Folder' });
       
@@ -207,7 +217,7 @@ describe('App Component - Excel File Processor', () => {
       error.name = 'NotSupportedError';
       (window as any).showDirectoryPicker.mockRejectedValue(error);
 
-      render(<App />);
+      renderApp();
       
       const selectButton = screen.getByRole('button', { name: 'Select Folder' });
       
@@ -215,7 +225,7 @@ describe('App Component - Excel File Processor', () => {
         fireEvent.click(selectButton);
       });
 
-      await waitFor(() => {
+    await waitFor(() => {
         expect(screen.getByText('Browser does not support this feature or user cancelled selection')).toBeInTheDocument();
       });
     });
@@ -238,15 +248,15 @@ describe('App Component - Excel File Processor', () => {
 
       (window as any).showDirectoryPicker.mockResolvedValue(mockDirectoryHandle);
 
-      render(<App />);
+      renderApp();
       
       const selectButton = screen.getByRole('button', { name: 'Select Folder' });
       
-      await act(async () => {
+    await act(async () => {
         fireEvent.click(selectButton);
-      });
+    });
 
-      await waitFor(() => {
+    await waitFor(() => {
         expect(screen.getByText('Found 2 Excel file(s) in the folder')).toBeInTheDocument();
       });
     });
@@ -323,18 +333,18 @@ describe('App Component - Excel File Processor', () => {
 
       (window as any).showDirectoryPicker.mockResolvedValue(mockDirectoryHandle);
 
-      render(<App />);
+      renderApp();
       
       const selectButton = screen.getByRole('button', { name: 'Select Folder' });
-      
-      await act(async () => {
+    
+    await act(async () => {
         fireEvent.click(selectButton);
-      });
-
-      await waitFor(() => {
-        expect(screen.getByText('Found 1 Excel file(s) in the folder')).toBeInTheDocument();
-      });
     });
+
+    await waitFor(() => {
+        expect(screen.getByText('Found 1 Excel file(s) in the folder')).toBeInTheDocument();
+    });
+  });
 
     test('handles merge files process successfully', async () => {
       const checkbox = screen.getByRole('checkbox');
@@ -342,28 +352,28 @@ describe('App Component - Excel File Processor', () => {
       
       const mergeButton = screen.getByRole('button', { name: 'Merge Files' });
       
-      await act(async () => {
+    await act(async () => {
         fireEvent.click(mergeButton);
-      });
+    });
 
-      await waitFor(() => {
+    await waitFor(() => {
         expect(screen.getByText('✅ Successfully merged 1 file(s)! Ready to save.')).toBeInTheDocument();
-      });
+    });
 
       expect(screen.getByRole('button', { name: 'Save Merged File' })).toBeInTheDocument();
     });
 
     test('shows error when trying to merge without selecting files', async () => {
       const mergeButton = screen.getByRole('button', { name: 'Merge Files' });
-      
-      await act(async () => {
+    
+    await act(async () => {
         fireEvent.click(mergeButton);
-      });
-
-      await waitFor(() => {
-        expect(screen.getByText('Please select at least one Excel file to process')).toBeInTheDocument();
-      });
     });
+
+    await waitFor(() => {
+        expect(screen.getByText('Please select at least one Excel file to process')).toBeInTheDocument();
+    });
+  });
 
     test('handles processing error', async () => {
       // Mock console.error to avoid noise in test output
@@ -403,7 +413,7 @@ describe('App Component - Excel File Processor', () => {
 
       (window as any).showDirectoryPicker.mockResolvedValue(mockDirectoryHandle);
 
-      render(<App />);
+      renderApp();
       
       const selectButton = screen.getByRole('button', { name: 'Select Folder' });
       
@@ -411,7 +421,7 @@ describe('App Component - Excel File Processor', () => {
         fireEvent.click(selectButton);
       });
 
-      await waitFor(() => {
+    await waitFor(() => {
         expect(screen.getByText('Found 1 Excel file(s) in the folder')).toBeInTheDocument();
       });
 
@@ -433,7 +443,7 @@ describe('App Component - Excel File Processor', () => {
     test('handles save merged file successfully', async () => {
       const saveButton = screen.getByRole('button', { name: 'Save Merged File' });
       
-      await act(async () => {
+    await act(async () => {
         fireEvent.click(saveButton);
       });
 
@@ -448,12 +458,12 @@ describe('App Component - Excel File Processor', () => {
       // Fast-forward timers to trigger success message
       act(() => {
         jest.advanceTimersByTime(500);
-      });
-
-      await waitFor(() => {
-        expect(screen.getByText(/📥 Merged file saved successfully!/)).toBeInTheDocument();
-      });
     });
+
+    await waitFor(() => {
+        expect(screen.getByText(/📥 Merged file saved successfully!/)).toBeInTheDocument();
+    });
+  });
 
     test('handles save error', async () => {
       const originalConsoleError = console.error;
@@ -469,7 +479,7 @@ describe('App Component - Excel File Processor', () => {
         fireEvent.click(saveButton);
       });
 
-      await waitFor(() => {
+    await waitFor(() => {
         expect(screen.getByText('Save failed: Save failed')).toBeInTheDocument();
       });
 
@@ -493,25 +503,25 @@ describe('App Component - Excel File Processor', () => {
 
       (window as any).showDirectoryPicker.mockResolvedValue(mockDirectoryHandle);
 
-      render(<App />);
+      renderApp();
       
       const selectButton = screen.getByRole('button', { name: 'Select Folder' });
       
-      await act(async () => {
+    await act(async () => {
         fireEvent.click(selectButton);
-      });
+    });
 
-      await waitFor(() => {
+    await waitFor(() => {
         expect(screen.getByText('Found 1 Excel file(s) in the folder')).toBeInTheDocument();
-      });
+    });
 
       const chooseNewFolderButton = screen.getByRole('button', { name: 'Choose New Folder' });
-      
-      await act(async () => {
+    
+    await act(async () => {
         fireEvent.click(chooseNewFolderButton);
-      });
+    });
 
-      await waitFor(() => {
+    await waitFor(() => {
         expect(screen.getByText('📁 Ready to select a new folder')).toBeInTheDocument();
       });
 
@@ -536,7 +546,7 @@ describe('App Component - Excel File Processor', () => {
 
       (window as any).showDirectoryPicker.mockResolvedValue(mockDirectoryHandle);
 
-      render(<App />);
+      renderApp();
       
       const selectButton = screen.getByRole('button', { name: 'Select Folder' });
       
@@ -544,7 +554,7 @@ describe('App Component - Excel File Processor', () => {
         fireEvent.click(selectButton);
       });
 
-      await waitFor(() => {
+    await waitFor(() => {
         expect(screen.getByText('Found 1 Excel file(s) in the folder')).toBeInTheDocument();
       });
 
@@ -553,17 +563,17 @@ describe('App Component - Excel File Processor', () => {
         jest.advanceTimersByTime(8000);
       });
 
-      await waitFor(() => {
+    await waitFor(() => {
         expect(screen.queryByText('Found 1 Excel file(s) in the folder')).not.toBeInTheDocument();
-      });
     });
+  });
 
     test('does not auto-hide error messages', async () => {
       const error = new Error('Test error');
       error.name = 'TestError';
       (window as any).showDirectoryPicker.mockRejectedValue(error);
 
-      render(<App />);
+      renderApp();
       
       const selectButton = screen.getByRole('button', { name: 'Select Folder' });
       
@@ -602,7 +612,7 @@ describe('App Component - Excel File Processor', () => {
 
       (window as any).showDirectoryPicker.mockResolvedValue(mockDirectoryHandle);
 
-      render(<App />);
+      renderApp();
       
       const selectButton = screen.getByRole('button', { name: 'Select Folder' });
       
@@ -628,7 +638,7 @@ describe('App Component - Excel File Processor', () => {
 
       (window as any).showDirectoryPicker.mockResolvedValue(mockDirectoryHandle);
 
-      render(<App />);
+      renderApp();
       
       const selectButton = screen.getByRole('button', { name: 'Select Folder' });
       
@@ -636,7 +646,7 @@ describe('App Component - Excel File Processor', () => {
         fireEvent.click(selectButton);
       });
 
-      await waitFor(() => {
+    await waitFor(() => {
         expect(screen.getByText('No Excel files found in the selected folder')).toBeInTheDocument();
       });
     });
@@ -656,15 +666,15 @@ describe('App Component - Excel File Processor', () => {
 
       (window as any).showDirectoryPicker.mockResolvedValue(mockDirectoryHandle);
 
-      render(<App />);
+      renderApp();
       
       const selectButton = screen.getByRole('button', { name: 'Select Folder' });
       
-      await act(async () => {
+    await act(async () => {
         fireEvent.click(selectButton);
-      });
+    });
 
-      await waitFor(() => {
+    await waitFor(() => {
         expect(screen.getByText('Found 1 Excel file(s) in the folder')).toBeInTheDocument();
       });
 
@@ -678,6 +688,232 @@ describe('App Component - Excel File Processor', () => {
       // Since we can't easily test this scenario with the current setup,
       // we'll test it through the integration tests
       expect(true).toBe(true); // Placeholder
+    });
+  });
+
+  describe('Column Validation', () => {
+    test('validates column consistency across files', async () => {
+      const mockDirectoryHandle = {
+        name: 'test-folder',
+        entries: jest.fn().mockReturnValue({
+          [Symbol.asyncIterator]: async function* () {
+            yield ['file1.xlsx', mockFileHandle];
+            yield ['file2.xlsx', mockFileHandle];
+          }
+        }),
+        getFileHandle: jest.fn().mockResolvedValue(mockFileHandle)
+      };
+
+      mockFileHandle.getFile.mockResolvedValue(mockFile);
+
+      // Mock XLSX.read to return workbooks with different columns
+      const mockWorkbook1 = {
+        SheetNames: ['Sheet1'],
+        Sheets: {
+          'Sheet1': {
+            '!ref': 'A1:C2',
+            'A1': { v: 'Name', t: 's' },
+            'B1': { v: 'Age', t: 's' },
+            'C1': { v: 'Email', t: 's' },
+            'A2': { v: 'John', t: 's' },
+            'B2': { v: 25, t: 'n' },
+            'C2': { v: 'john@test.com', t: 's' }
+          }
+        }
+      };
+
+      const mockWorkbook2 = {
+        SheetNames: ['Sheet1'],
+        Sheets: {
+          'Sheet1': {
+            '!ref': 'A1:D2',
+            'A1': { v: 'Name', t: 's' },
+            'B1': { v: 'Age', t: 's' },
+            'C1': { v: 'Email', t: 's' },
+            'D1': { v: 'Phone', t: 's' },
+            'A2': { v: 'Jane', t: 's' },
+            'B2': { v: 30, t: 'n' },
+            'C2': { v: 'jane@test.com', t: 's' },
+            'D2': { v: '123-456-7890', t: 's' }
+          }
+        }
+      };
+
+      mockXLSX.read = jest.fn()
+        .mockReturnValueOnce(mockWorkbook1)
+        .mockReturnValueOnce(mockWorkbook2);
+
+      (window as any).showDirectoryPicker.mockResolvedValue(mockDirectoryHandle);
+
+      renderApp();
+      
+      const selectButton = screen.getByRole('button', { name: 'Select Folder' });
+      
+      await act(async () => {
+        fireEvent.click(selectButton);
+    });
+
+    await waitFor(() => {
+        expect(screen.getByText('Found 2 Excel file(s) in the folder')).toBeInTheDocument();
+      });
+
+      // Select both files
+      const checkboxes = screen.getAllByRole('checkbox');
+      await act(async () => {
+        fireEvent.click(checkboxes[0]);
+        fireEvent.click(checkboxes[1]);
+      });
+
+      const mergeButton = screen.getByRole('button', { name: 'Merge Files' });
+      
+      await act(async () => {
+        fireEvent.click(mergeButton);
+    });
+
+    await waitFor(() => {
+        expect(screen.getByText(/Column mismatch detected/)).toBeInTheDocument();
+      });
+    });
+
+    test('allows merging files with consistent columns', async () => {
+      const mockDirectoryHandle = {
+        name: 'test-folder',
+        entries: jest.fn().mockReturnValue({
+          [Symbol.asyncIterator]: async function* () {
+            yield ['file1.xlsx', mockFileHandle];
+            yield ['file2.xlsx', mockFileHandle];
+          }
+        }),
+        getFileHandle: jest.fn().mockResolvedValue(mockFileHandle)
+      };
+
+      mockFileHandle.getFile.mockResolvedValue(mockFile);
+
+      // Mock XLSX.read to return workbooks with same columns
+      const mockWorkbook = {
+        SheetNames: ['Sheet1'],
+        Sheets: {
+          'Sheet1': {
+            '!ref': 'A1:C2',
+            'A1': { v: 'Name', t: 's' },
+            'B1': { v: 'Age', t: 's' },
+            'C1': { v: 'Email', t: 's' },
+            'A2': { v: 'John', t: 's' },
+            'B2': { v: 25, t: 'n' },
+            'C2': { v: 'john@test.com', t: 's' }
+          }
+        }
+      };
+
+      mockXLSX.read = jest.fn().mockReturnValue(mockWorkbook);
+
+      (window as any).showDirectoryPicker.mockResolvedValue(mockDirectoryHandle);
+
+      renderApp();
+      
+      const selectButton = screen.getByRole('button', { name: 'Select Folder' });
+      
+    await act(async () => {
+        fireEvent.click(selectButton);
+    });
+
+    await waitFor(() => {
+        expect(screen.getByText('Found 2 Excel file(s) in the folder')).toBeInTheDocument();
+      });
+
+      // Select both files
+      const checkboxes = screen.getAllByRole('checkbox');
+      await act(async () => {
+        fireEvent.click(checkboxes[0]);
+        fireEvent.click(checkboxes[1]);
+      });
+
+      const mergeButton = screen.getByRole('button', { name: 'Merge Files' });
+    
+    await act(async () => {
+        fireEvent.click(mergeButton);
+    });
+
+    await waitFor(() => {
+        expect(screen.getByText(/All files have consistent columns/)).toBeInTheDocument();
+      });
+    });
+  });
+
+  describe('Language Support', () => {
+    test('renders language selector', () => {
+      renderApp();
+      
+      expect(screen.getByText('Language:')).toBeInTheDocument();
+      expect(screen.getByDisplayValue('🇺🇸 English')).toBeInTheDocument();
+    });
+
+    test('switches language correctly', async () => {
+      renderApp();
+      
+      const languageSelect = screen.getByDisplayValue('🇺🇸 English');
+      
+    await act(async () => {
+        fireEvent.change(languageSelect, { target: { value: 'hu' } });
+    });
+
+    await waitFor(() => {
+        expect(screen.getByDisplayValue('🇭🇺 Magyar')).toBeInTheDocument();
+      });
+    });
+  });
+
+  describe('Lazy Loading', () => {
+    test('only loads files when selected for processing', async () => {
+      const mockDirectoryHandle = {
+        name: 'test-folder',
+        entries: jest.fn().mockReturnValue({
+          [Symbol.asyncIterator]: async function* () {
+            yield ['file1.xlsx', mockFileHandle];
+            yield ['file2.xlsx', mockFileHandle];
+          }
+        }),
+        getFileHandle: jest.fn().mockResolvedValue(mockFileHandle)
+      };
+
+      mockFileHandle.getFile.mockResolvedValue(mockFile);
+      mockXLSX.read = jest.fn().mockReturnValue({
+        SheetNames: ['Sheet1'],
+        Sheets: { 'Sheet1': { '!ref': 'A1:A1' } }
+      });
+
+      (window as any).showDirectoryPicker.mockResolvedValue(mockDirectoryHandle);
+
+      renderApp();
+      
+      const selectButton = screen.getByRole('button', { name: 'Select Folder' });
+      
+    await act(async () => {
+        fireEvent.click(selectButton);
+    });
+
+    await waitFor(() => {
+        expect(screen.getByText('Found 2 Excel file(s) in the folder')).toBeInTheDocument();
+    });
+
+      // Files should be listed but not loaded yet
+      expect(screen.getByText('file1.xlsx')).toBeInTheDocument();
+      expect(screen.getByText('file2.xlsx')).toBeInTheDocument();
+    
+      // Only when we select and process should files be loaded
+      const checkboxes = screen.getAllByRole('checkbox');
+    await act(async () => {
+        fireEvent.click(checkboxes[0]);
+      });
+
+      const mergeButton = screen.getByRole('button', { name: 'Merge Files' });
+    
+    await act(async () => {
+        fireEvent.click(mergeButton);
+    });
+
+      // Now files should be loaded
+      expect(mockDirectoryHandle.getFileHandle).toHaveBeenCalledWith('file1.xlsx');
     });
   });
 });

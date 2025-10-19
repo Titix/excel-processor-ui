@@ -114,3 +114,4 @@ if (commands[command]) {
   console.log('Run "node test/runner.js help" for available commands');
   process.exit(1);
 }
+

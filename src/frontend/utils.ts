@@ -93,3 +93,4 @@ export const formatMessage = (message: string, type: MessageType): string => {
   const icon = getMessageIcon(type);
   return `${icon} ${message}`;
 };
+

@@ -186,6 +186,20 @@ if (!global.Uint8Array) {
   };
 }
 
+// Setup DOM container for each test
+beforeEach(() => {
+  // Clear any existing root element
+  const existingRoot = document.getElementById('root');
+  if (existingRoot) {
+    existingRoot.remove();
+  }
+  
+  // Create a div element for React to render into
+  const div = document.createElement('div');
+  div.id = 'root';
+  document.body.appendChild(div);
+});
+
 // Clean up after each test
 afterEach(() => {
   // Clear all timers
@@ -194,8 +208,11 @@ afterEach(() => {
   // Clear all mocks
   jest.clearAllMocks();
   
-  // Reset DOM
-  document.body.innerHTML = '';
+  // Reset DOM but keep the root div
+  const root = document.getElementById('root');
+  if (root) {
+    root.innerHTML = '';
+  }
   
   // Clear localStorage and sessionStorage
   localStorage.clear();

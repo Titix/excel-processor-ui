@@ -1,5 +1,7 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import './App.css';
+import { useLanguage, formatMessage } from '../contexts/LanguageContext';
+import LanguageSelector from '../components/LanguageSelector';
 
 // Version constant - update this when releasing new versions
 const APP_VERSION = '1.0.0';
@@ -10,24 +12,25 @@ declare global {
   }
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-interface FileData {
+interface ExcelFile {
   name: string;
   size: number;
   data: any;
+  selected: boolean;
+  path: string; // Store the full path for later use
 }
 
 type MessageType = 'success' | 'error' | 'info';
 
 const App: React.FC = () => {
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [workbookData, setWorkbookData] = useState<any>(null);
+  const { t } = useLanguage();
+  const [selectedFolder, setSelectedFolder] = useState<string>('');
+  const [directoryHandle, setDirectoryHandle] = useState<any>(null);
+  const [excelFiles, setExcelFiles] = useState<ExcelFile[]>([]);
   const [processedWorkbookData, setProcessedWorkbookData] = useState<any>(null);
-  const [isDragOver, setIsDragOver] = useState(false);
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState<MessageType>('info');
   
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const showMessage = (messageText: string, type: MessageType) => {
     setMessage(messageText);
@@ -41,138 +44,291 @@ const App: React.FC = () => {
     }
   };
 
-  const onDragOver = (event: React.DragEvent) => {
-    event.preventDefault();
-    setIsDragOver(true);
-  };
 
-  const onDragLeave = (event: React.DragEvent) => {
-    event.preventDefault();
-    setIsDragOver(false);
-  };
-
-  const onDrop = (event: React.DragEvent) => {
-    event.preventDefault();
-    setIsDragOver(false);
-    
-    const files = event.dataTransfer?.files;
-    if (files && files.length > 0) {
-      handleFile(files[0]);
-    }
-  };
-
-  const onFileSelected = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const target = event.target;
-    if (target.files && target.files.length > 0) {
-      handleFile(target.files[0]);
-    }
-  };
-
-  const handleFile = (file: File) => {
-    // Validate file type
-    if (!file.name.match(/\.(xlsx?)$/i)) {
-      showMessage('Please select an Excel file (.xls or .xlsx)', 'error');
-      return;
-    }
-    
-    // Validate file size (50MB limit)
-    if (file.size > 50 * 1024 * 1024) {
-      showMessage('File size must be less than 50MB', 'error');
-      return;
-    }
-    
-    setSelectedFile(file);
-    readExcelFile(file);
-  };
-
-  const readExcelFile = (file: File) => {
-    const reader = new FileReader();
-    
-    reader.onload = (e) => {
-      try {
-        const data = new Uint8Array(e.target?.result as ArrayBuffer);
-        const workbook = window.XLSX.read(data, { type: 'array' });
-        setWorkbookData(workbook);
-        showMessage('📁 File loaded successfully! Ready to process.', 'success');
-      } catch (error) {
-        console.error('Error reading Excel file:', error);
-        showMessage('Error reading Excel file: ' + (error as Error).message, 'error');
-        setWorkbookData(null);
-      }
-    };
-    
-    reader.onerror = () => {
-      showMessage('Error reading file', 'error');
-      setWorkbookData(null);
-    };
-    
-    reader.readAsArrayBuffer(file);
-  };
-
-  const processFile = () => {
-    if (!workbookData) {
-      showMessage('Please select a file first', 'error');
-      return;
-    }
-    
+  const handleFolderSelection = async () => {
     try {
-      // Create a copy of the workbook for processing (safer approach)
-      const processedWorkbook = window.XLSX.read(
-        window.XLSX.write(workbookData, { type: 'array' }), 
-        { type: 'array' }
-      );
+      // Use File System Access API to avoid browser upload messages
+      const dirHandle = await (window as any).showDirectoryPicker();
+      const excelFilesList: ExcelFile[] = [];
       
-      // Process each sheet
-      Object.keys(processedWorkbook.Sheets).forEach(sheetName => {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const sheet = processedWorkbook.Sheets[sheetName];
-        
-        // Here you can add your processing logic
-        // For now, we'll just copy the data as-is
-        // You can modify cells, add formulas, etc.
+      // Read directory entries without accessing file content
+      for await (const [name, handle] of dirHandle.entries()) {
+        if (handle.kind === 'file' && (name.endsWith('.xls') || name.endsWith('.xlsx'))) {
+          const file = await handle.getFile();
+          excelFilesList.push({
+            name: file.name,
+            size: file.size,
+            data: null, // No file content loaded
+            selected: false,
+            path: name
+          });
+        }
+      }
+      
+            setSelectedFolder(dirHandle.name);
+            setDirectoryHandle(dirHandle);
+            setExcelFiles(excelFilesList);
+      
+      if (excelFilesList.length === 0) {
+        showMessage(t.messages.noExcelFilesInFolder, 'info');
+      } else {
+        showMessage(formatMessage(t.messages.foundExcelFiles, { count: excelFilesList.length }), 'success');
+      }
+    } catch (error: any) {
+      if (error.name !== 'AbortError') {
+        showMessage(t.messages.browserNotSupported, 'error');
+      }
+    }
+  };
+
+
+  const toggleFileSelection = (index: number) => {
+    const updatedFiles = [...excelFiles];
+    updatedFiles[index].selected = !updatedFiles[index].selected;
+    setExcelFiles(updatedFiles);
+  };
+
+  const selectAllFiles = () => {
+    const updatedFiles = excelFiles.map(file => ({ ...file, selected: true }));
+    setExcelFiles(updatedFiles);
+  };
+
+  const deselectAllFiles = () => {
+    const updatedFiles = excelFiles.map(file => ({ ...file, selected: false }));
+    setExcelFiles(updatedFiles);
+  };
+
+  const loadSelectedFiles = async (files: ExcelFile[]): Promise<any[]> => {
+    const loadedFiles: any[] = [];
+    
+    for (const file of files) {
+      if (file.selected) {
+        try {
+          // Load the actual Excel file using the stored directory handle
+          const fileHandle = await directoryHandle.getFileHandle(file.path);
+          const fileData = await fileHandle.getFile();
+          const arrayBuffer = await fileData.arrayBuffer();
+          
+          const workbook = window.XLSX.read(arrayBuffer, { type: 'array' });
+          
+          loadedFiles.push({
+            name: file.name,
+            path: file.path,
+            workbook: workbook,
+            sheets: workbook.SheetNames
+          });
+        } catch (error) {
+          console.error(`Error loading file ${file.name}:`, error);
+          throw new Error(formatMessage(t.messages.failedToLoadFile, { fileName: file.name }));
+        }
+      }
+    }
+    
+    return loadedFiles;
+  };
+
+  // Function to validate column consistency across files
+  const validateColumnConsistency = (loadedFiles: any[]): { isValid: boolean; message: string } => {
+    if (loadedFiles.length <= 1) {
+      return { isValid: true, message: '' };
+    }
+
+    const allColumns: { [fileName: string]: string[] } = {};
+    
+    // Extract column headers from each file
+    loadedFiles.forEach(file => {
+      const columns: string[] = [];
+      file.workbook.SheetNames.forEach((sheetName: string) => {
+        const worksheet = file.workbook.Sheets[sheetName];
+        if (worksheet && worksheet['!ref']) {
+          const range = window.XLSX.utils.decode_range(worksheet['!ref']);
+          // Get first row as headers
+          for (let col = range.s.c; col <= range.e.c; col++) {
+            const cellAddress = window.XLSX.utils.encode_cell({ r: range.s.r, c: col });
+            const cell = worksheet[cellAddress];
+            if (cell && cell.v !== undefined) {
+              columns.push(String(cell.v));
+            }
+          }
+        }
+      });
+      allColumns[file.name] = columns;
+    });
+
+    // Compare columns across files
+    const fileNames = Object.keys(allColumns);
+    const firstFileColumns = allColumns[fileNames[0]];
+    const mismatchedFiles: string[] = [];
+
+    for (let i = 1; i < fileNames.length; i++) {
+      const currentFileColumns = allColumns[fileNames[i]];
+      if (JSON.stringify(firstFileColumns) !== JSON.stringify(currentFileColumns)) {
+        mismatchedFiles.push(fileNames[i]);
+      }
+    }
+
+    if (mismatchedFiles.length > 0) {
+      const message = `Column mismatch detected! Files with different columns: ${mismatchedFiles.join(', ')}. Expected columns: ${firstFileColumns.join(', ')}`;
+      return { isValid: false, message };
+    }
+
+    return { isValid: true, message: `All files have consistent columns: ${firstFileColumns.join(', ')}` };
+  };
+
+  const processFiles = async () => {
+    const selectedFiles = excelFiles.filter(file => file.selected);
+    
+    if (selectedFiles.length === 0) {
+      showMessage(t.messages.selectAtLeastOneFile, 'error');
+      return;
+    }
+
+    try {
+      showMessage(t.messages.loadingAndProcessing, 'info');
+      
+      // Load the actual Excel files and read their data
+      const loadedFiles = await loadSelectedFiles(selectedFiles);
+      
+      // Validate column consistency
+      const validation = validateColumnConsistency(loadedFiles);
+      if (!validation.isValid) {
+        showMessage(validation.message, 'error');
+        return;
+      }
+      
+      // Show validation success message
+      if (validation.message) {
+        showMessage(validation.message, 'info');
+      }
+      
+      // Create merged workbook
+      const mergedWorkbook = {
+        SheetNames: [] as string[],
+        Sheets: {} as { [key: string]: any }
+      };
+
+      // Merge all sheets from all workbooks into a single sheet named "processed"
+      const mergedSheetName = "processed";
+      mergedWorkbook.SheetNames.push(mergedSheetName);
+      
+      // Create merged sheet data
+      const mergedSheetData: any = {};
+      let currentRow = 1;
+      
+      // Process each loaded file
+      loadedFiles.forEach((file, fileIndex) => {
+        try {
+          const workbook = file.workbook;
+          
+          // Process each sheet in the workbook
+          workbook.SheetNames.forEach((sheetName: string) => {
+            const worksheet = workbook.Sheets[sheetName];
+            
+            // Check if worksheet has data
+            if (worksheet && worksheet['!ref']) {
+              try {
+                const range = window.XLSX.utils.decode_range(worksheet['!ref']);
+                
+                // Copy ALL data from the sheet (no limits)
+                for (let row = range.s.r; row <= range.e.r; row++) {
+                  for (let col = range.s.c; col <= range.e.c; col++) {
+                    const cellAddress = window.XLSX.utils.encode_cell({ r: row, c: col });
+                    const cell = worksheet[cellAddress];
+                    if (cell && cell.v !== undefined) {
+                      const newAddress = window.XLSX.utils.encode_cell({ r: currentRow - 1, c: col });
+                      mergedSheetData[newAddress] = { v: cell.v, t: cell.t };
+                    }
+                  }
+                  currentRow++;
+                }
+              } catch (rangeError) {
+                console.warn(`Error processing range for sheet ${sheetName}:`, rangeError);
+                // Add a note about the error
+                mergedSheetData[`A${currentRow}`] = { v: `Error processing sheet: ${sheetName}`, t: 's' };
+                currentRow++;
+              }
+            }
+          });
+        } catch (fileError: any) {
+          console.warn(`Error processing file ${file.name}:`, fileError);
+          // Add error note for this file
+          mergedSheetData[`A${currentRow}`] = { v: `Error processing file: ${file.name}`, t: 's' };
+          currentRow++;
+          mergedSheetData[`A${currentRow}`] = { v: `Error: ${fileError.message || 'Unknown error'}`, t: 's' };
+          currentRow++;
+        }
       });
       
-      setProcessedWorkbookData(processedWorkbook);
-      showMessage('✅ File processed successfully! Ready to download.', 'success');
+      // Set the range for the merged sheet
+      const maxRow = currentRow - 1;
+      
+      // Calculate the maximum number of columns from all files
+      let maxCol = 0;
+      loadedFiles.forEach(file => {
+        file.workbook.SheetNames.forEach((sheetName: string) => {
+          const worksheet = file.workbook.Sheets[sheetName];
+          if (worksheet && worksheet['!ref']) {
+            const range = window.XLSX.utils.decode_range(worksheet['!ref']);
+            maxCol = Math.max(maxCol, range.e.c);
+          }
+        });
+      });
+      
+      mergedSheetData['!ref'] = `A1:${window.XLSX.utils.encode_cell({ r: maxRow, c: maxCol })}`;
+      
+      mergedWorkbook.Sheets[mergedSheetName] = mergedSheetData;
+
+      setProcessedWorkbookData(mergedWorkbook);
+      showMessage(`${t.messages.successfullyMerged.replace('{{count}}', String(selectedFiles.length))} Sheet name: ${mergedSheetName}`, 'success');
       
     } catch (error) {
       console.error('Processing error:', error);
-      showMessage('Processing failed: ' + (error as Error).message, 'error');
+      showMessage(formatMessage(t.messages.processingFailed, { error: (error as Error).message }), 'error');
     }
   };
 
-  const downloadFile = () => {
+  const saveMergedFile = () => {
     if (!processedWorkbookData) {
-      showMessage('Please process a file first', 'error');
+      showMessage(t.messages.pleaseProcessFilesFirst, 'error');
+      return;
+    }
+    
+    if (!selectedFolder) {
+      showMessage(t.messages.pleaseSelectFolderFirst, 'error');
       return;
     }
     
     try {
-      // Determine the original file format
-      const originalFormat = selectedFile?.name.toLowerCase().endsWith('.xls') ? 'xls' : 'xlsx';
-      
-      // Convert workbook to Excel file with optimized settings for compatibility and size
+      // Convert workbook to Excel file with optimized settings
       const wbout = window.XLSX.write(processedWorkbookData, { 
-        bookType: originalFormat,
+        bookType: 'xlsx',
         type: 'array',
-        compression: true,  // Enable compression for smaller files
-        cellStyles: false,  // Disable cell styles to reduce size
-        cellNF: false,      // Disable number formats to reduce size
-        cellHTML: false     // Disable HTML in cells to reduce size
+        compression: true,
+        cellStyles: false,
+        cellNF: false,
+        cellHTML: false
       });
       
       // Create blob with appropriate MIME type
-      const mimeType = originalFormat === 'xls' 
-        ? 'application/vnd.ms-excel' 
-        : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-      
-      const blob = new Blob([wbout], { type: mimeType });
+      const blob = new Blob([wbout], { 
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+      });
       const url = window.URL.createObjectURL(blob);
       
-      // Create download link with original format extension
+      // Generate filename with current timestamp in YYYYMMDDhhss format
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const day = String(now.getDate()).padStart(2, '0');
+      const hours = String(now.getHours()).padStart(2, '0');
+      const minutes = String(now.getMinutes()).padStart(2, '0');
+      const seconds = String(now.getSeconds()).padStart(2, '0');
+      const timestamp = `${year}${month}${day}${hours}${minutes}${seconds}`;
+      
+      // Create download link with shorter filename to avoid Excel limitations
       const a = document.createElement('a');
       a.href = url;
-      a.download = selectedFile ? selectedFile.name.replace(/\.(xlsx?)$/i, '_processed.$1') : `processed_file.${originalFormat}`;
+      a.download = `proc_${timestamp}.xlsx`;
       document.body.appendChild(a);
       a.click();
       
@@ -182,30 +338,30 @@ const App: React.FC = () => {
       
       // Add a small delay to ensure download has started
       setTimeout(() => {
-        showMessage('📥 File downloaded successfully! Check your downloads folder.', 'success');
+        showMessage(formatMessage(t.messages.mergedFileSaved, { folder: selectedFolder }), 'success');
       }, 500);
       
     } catch (error) {
-      console.error('Download error:', error);
-      showMessage('Download failed: ' + (error as Error).message, 'error');
+      console.error('Save error:', error);
+      showMessage(formatMessage(t.messages.saveFailed, { error: (error as Error).message }), 'error');
     }
   };
 
-  const chooseNewFile = () => {
+  const chooseNewFolder = () => {
     // Reset the application state
-    setSelectedFile(null);
-    setWorkbookData(null);
+    setSelectedFolder('');
+    setExcelFiles([]);
     setProcessedWorkbookData(null);
     setMessage('');
     
     // Show message
-    showMessage('📁 Ready to select a new file', 'info');
+    showMessage(t.messages.readyToSelectNewFolder, 'info');
   };
 
   const formatFileSize = (bytes: number): string => {
-    if (bytes === 0) return '0 Bytes';
+    if (bytes === 0) return `0 ${t.fileSizeUnits.bytes}`;
     const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const sizes = [t.fileSizeUnits.bytes, t.fileSizeUnits.kb, t.fileSizeUnits.mb, t.fileSizeUnits.gb];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
@@ -213,70 +369,116 @@ const App: React.FC = () => {
   return (
     <div className="container">
       <header>
-        <h1>Excel Processor</h1>
-        <p>Upload, process, and download Excel files with ease</p>
+        <div className="header-top">
+          <div className="header-content">
+            <h1>{t.appTitle}</h1>
+            <p>{t.appSubtitle}</p>
+          </div>
+          <LanguageSelector />
+        </div>
       </header>
 
       <main>
-        <div className="upload-section">
-          <div 
-            className={`upload-area ${isDragOver ? 'dragover' : ''}`}
-            onDragOver={onDragOver}
-            onDragLeave={onDragLeave}
-            onDrop={onDrop}
-          >
-            <div className="upload-content">
-              <div className="upload-icon">📁</div>
-              <h3>Choose Excel File</h3>
-              <p>Drag and drop your Excel file here or click to browse</p>
-              <input 
-                type="file" 
-                ref={fileInputRef}
-                accept=".xls,.xlsx" 
-                style={{ display: 'none' }}
-                onChange={onFileSelected}
-              />
-              <button 
-                type="button" 
-                className="btn btn-primary" 
-                onClick={() => fileInputRef.current?.click()}
-              >
-                Browse Files
-              </button>
+        {!selectedFolder ? (
+          <div className="folder-selection-section">
+            <div className="folder-selection-area">
+              <div className="folder-selection-content">
+                <div className="folder-icon">📁</div>
+                <h3>{t.selectFolder}</h3>
+                <p>{t.selectFolderDescription}</p>
+                
+                
+                <div className="selection-options">
+                  <button 
+                    type="button" 
+                    className="btn btn-primary" 
+                    onClick={handleFolderSelection}
+                  >
+                    {t.selectFolder}
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
-          
-          {selectedFile && (
-            <div className="file-info">
-              <div className="file-details">
-                <span className="file-icon">📄</span>
-                <span className="file-name">{selectedFile.name}</span>
-                <span className="file-size">{formatFileSize(selectedFile.size)}</span>
-              </div>
-              <button 
-                type="button" 
-                className="btn btn-secondary btn-small" 
-                onClick={chooseNewFile}
-              >
-                Choose New File
-              </button>
+        ) : (
+          <div className="folder-info">
+            <div className="folder-details">
+              <span className="folder-icon">📁</span>
+              <span className="folder-name">{selectedFolder}</span>
+              <span className="file-count">{formatMessage(t.excelFilesFound, { count: excelFiles.length })}</span>
             </div>
-          )}
-        </div>
+            <button 
+              type="button" 
+              className="btn btn-secondary btn-small" 
+              onClick={chooseNewFolder}
+            >
+              {t.chooseNewFolder}
+            </button>
+          </div>
+        )}
 
-        {selectedFile && (
+        {selectedFolder && (
+          <div className="files-section">
+            <div className="section-header">
+              <h3>{t.excelFilesFoundTitle}</h3>
+              <p>{t.selectFilesToMerge}</p>
+              {excelFiles.length > 0 && (
+                <div className="file-controls">
+                  <button 
+                    type="button" 
+                    className="btn btn-small btn-secondary" 
+                    onClick={selectAllFiles}
+                  >
+                    {t.selectAll}
+                  </button>
+                  <button 
+                    type="button" 
+                    className="btn btn-small btn-secondary" 
+                    onClick={deselectAllFiles}
+                  >
+                    {t.deselectAll}
+                  </button>
+                </div>
+              )}
+            </div>
+            <div className="files-list">
+              {excelFiles.length > 0 ? (
+                excelFiles.map((file, index) => (
+                  <div key={index} className="file-item">
+                    <label className="file-checkbox">
+                      <input
+                        type="checkbox"
+                        checked={file.selected}
+                        onChange={() => toggleFileSelection(index)}
+                      />
+                      <span className="file-icon">📄</span>
+                      <span className="file-name">{file.name}</span>
+                      <span className="file-size">{formatFileSize(file.size)}</span>
+                    </label>
+                  </div>
+                ))
+              ) : (
+                <div className="no-files-message">
+                  <p>{t.noExcelFilesFound}</p>
+                  <p>{t.noExcelFilesSuggestion}</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {excelFiles.some(file => file.selected) && (
           <div className="process-section">
             <div className="section-header">
-              <h3>Process File</h3>
-              <p>Click the button below to process your uploaded file</p>
+              <h3>{t.mergeSelectedFiles}</h3>
+              <p>{t.mergeFilesDescription}</p>
             </div>
             <button 
               type="button" 
               className="btn btn-warning" 
-              disabled={!workbookData}
-              onClick={processFile}
+              onClick={processFiles}
             >
-              Process File
+              {t.mergeFiles}
             </button>
           </div>
         )}
@@ -284,15 +486,15 @@ const App: React.FC = () => {
         {processedWorkbookData && (
           <div className="download-section">
             <div className="section-header">
-              <h3>Download Processed File</h3>
-              <p>Your file has been processed successfully</p>
+              <h3>{t.saveMergedFile}</h3>
+              <p>{t.saveMergedFileDescription}</p>
             </div>
             <button 
               type="button" 
               className="btn btn-success" 
-              onClick={downloadFile}
+              onClick={saveMergedFile}
             >
-              Save Processed File
+              {t.saveMergedFile}
             </button>
           </div>
         )}
@@ -305,8 +507,8 @@ const App: React.FC = () => {
       </main>
 
       <footer>
-        <p>&copy; 2025 Excel Processor. Built with React and Node.js.</p>
-        <p className="version-info">Version {APP_VERSION}</p>
+        <p>{t.footer.copyright}</p>
+        <p className="version-info">{formatMessage(t.footer.version, { version: APP_VERSION })}</p>
       </footer>
     </div>
   );

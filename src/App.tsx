@@ -238,7 +238,7 @@ const App: React.FC = () => {
                 className="btn btn-primary" 
                 onClick={() => fileInputRef.current?.click()}
               >
-                Browse Files
+                Select Folder
               </button>
             </div>
           </div>

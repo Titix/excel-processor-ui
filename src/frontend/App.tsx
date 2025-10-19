@@ -25,6 +25,7 @@ type MessageType = 'success' | 'error' | 'info';
 const App: React.FC = () => {
   const { t } = useLanguage();
   const [selectedFolder, setSelectedFolder] = useState<string>('');
+  const [directoryHandle, setDirectoryHandle] = useState<any>(null);
   const [excelFiles, setExcelFiles] = useState<ExcelFile[]>([]);
   const [processedWorkbookData, setProcessedWorkbookData] = useState<any>(null);
   const [message, setMessage] = useState('');
@@ -64,8 +65,9 @@ const App: React.FC = () => {
         }
       }
       
-      setSelectedFolder(dirHandle.name);
-      setExcelFiles(excelFilesList);
+            setSelectedFolder(dirHandle.name);
+            setDirectoryHandle(dirHandle);
+            setExcelFiles(excelFilesList);
       
       if (excelFilesList.length === 0) {
         showMessage(t.messages.noExcelFilesInFolder, 'info');
@@ -102,14 +104,19 @@ const App: React.FC = () => {
     for (const file of files) {
       if (file.selected) {
         try {
-          // In a real implementation, you would load the file from the stored path
-          // For now, we'll simulate loading the file
-          const simulatedWorkbook = {
+          // Load the actual Excel file using the stored directory handle
+          const fileHandle = await directoryHandle.getFileHandle(file.path);
+          const fileData = await fileHandle.getFile();
+          const arrayBuffer = await fileData.arrayBuffer();
+          
+          const workbook = window.XLSX.read(arrayBuffer, { type: 'array' });
+          
+          loadedFiles.push({
             name: file.name,
-            sheets: ['Sheet1', 'Sheet2'], // Simulated sheet names
-            data: {} // Simulated data
-          };
-          loadedFiles.push(simulatedWorkbook);
+            path: file.path,
+            workbook: workbook,
+            sheets: workbook.SheetNames
+          });
         } catch (error) {
           console.error(`Error loading file ${file.name}:`, error);
           throw new Error(formatMessage(t.messages.failedToLoadFile, { fileName: file.name }));
@@ -118,6 +125,54 @@ const App: React.FC = () => {
     }
     
     return loadedFiles;
+  };
+
+  // Function to validate column consistency across files
+  const validateColumnConsistency = (loadedFiles: any[]): { isValid: boolean; message: string } => {
+    if (loadedFiles.length <= 1) {
+      return { isValid: true, message: '' };
+    }
+
+    const allColumns: { [fileName: string]: string[] } = {};
+    
+    // Extract column headers from each file
+    loadedFiles.forEach(file => {
+      const columns: string[] = [];
+      file.workbook.SheetNames.forEach((sheetName: string) => {
+        const worksheet = file.workbook.Sheets[sheetName];
+        if (worksheet && worksheet['!ref']) {
+          const range = window.XLSX.utils.decode_range(worksheet['!ref']);
+          // Get first row as headers
+          for (let col = range.s.c; col <= range.e.c; col++) {
+            const cellAddress = window.XLSX.utils.encode_cell({ r: range.s.r, c: col });
+            const cell = worksheet[cellAddress];
+            if (cell && cell.v !== undefined) {
+              columns.push(String(cell.v));
+            }
+          }
+        }
+      });
+      allColumns[file.name] = columns;
+    });
+
+    // Compare columns across files
+    const fileNames = Object.keys(allColumns);
+    const firstFileColumns = allColumns[fileNames[0]];
+    const mismatchedFiles: string[] = [];
+
+    for (let i = 1; i < fileNames.length; i++) {
+      const currentFileColumns = allColumns[fileNames[i]];
+      if (JSON.stringify(firstFileColumns) !== JSON.stringify(currentFileColumns)) {
+        mismatchedFiles.push(fileNames[i]);
+      }
+    }
+
+    if (mismatchedFiles.length > 0) {
+      const message = `Column mismatch detected! Files with different columns: ${mismatchedFiles.join(', ')}. Expected columns: ${firstFileColumns.join(', ')}`;
+      return { isValid: false, message };
+    }
+
+    return { isValid: true, message: `All files have consistent columns: ${firstFileColumns.join(', ')}` };
   };
 
   const processFiles = async () => {
@@ -131,27 +186,100 @@ const App: React.FC = () => {
     try {
       showMessage(t.messages.loadingAndProcessing, 'info');
       
-      // Load only the selected files
-      const workbooks = await loadSelectedFiles(excelFiles);
-
+      // Load the actual Excel files and read their data
+      const loadedFiles = await loadSelectedFiles(selectedFiles);
+      
+      // Validate column consistency
+      const validation = validateColumnConsistency(loadedFiles);
+      if (!validation.isValid) {
+        showMessage(validation.message, 'error');
+        return;
+      }
+      
+      // Show validation success message
+      if (validation.message) {
+        showMessage(validation.message, 'info');
+      }
+      
       // Create merged workbook
       const mergedWorkbook = {
         SheetNames: [] as string[],
         Sheets: {} as { [key: string]: any }
       };
 
-      // Merge all sheets from all workbooks
-      workbooks.forEach((workbook, workbookIndex) => {
-        workbook.sheets.forEach((sheetName: string, sheetIndex: number) => {
-          const mergedSheetName = `${workbook.name.replace(/\.(xlsx?)$/i, '')}_${sheetName}`;
-          mergedWorkbook.SheetNames.push(mergedSheetName);
-          // In real implementation, you'd merge actual sheet data here
-          mergedWorkbook.Sheets[mergedSheetName] = {};
+      // Merge all sheets from all workbooks into a single sheet named "processed"
+      const mergedSheetName = "processed";
+      mergedWorkbook.SheetNames.push(mergedSheetName);
+      
+      // Create merged sheet data
+      const mergedSheetData: any = {};
+      let currentRow = 1;
+      
+      // Process each loaded file
+      loadedFiles.forEach((file, fileIndex) => {
+        try {
+          const workbook = file.workbook;
+          
+          // Process each sheet in the workbook
+          workbook.SheetNames.forEach((sheetName: string) => {
+            const worksheet = workbook.Sheets[sheetName];
+            
+            // Check if worksheet has data
+            if (worksheet && worksheet['!ref']) {
+              try {
+                const range = window.XLSX.utils.decode_range(worksheet['!ref']);
+                
+                // Copy ALL data from the sheet (no limits)
+                for (let row = range.s.r; row <= range.e.r; row++) {
+                  for (let col = range.s.c; col <= range.e.c; col++) {
+                    const cellAddress = window.XLSX.utils.encode_cell({ r: row, c: col });
+                    const cell = worksheet[cellAddress];
+                    if (cell && cell.v !== undefined) {
+                      const newAddress = window.XLSX.utils.encode_cell({ r: currentRow - 1, c: col });
+                      mergedSheetData[newAddress] = { v: cell.v, t: cell.t };
+                    }
+                  }
+                  currentRow++;
+                }
+              } catch (rangeError) {
+                console.warn(`Error processing range for sheet ${sheetName}:`, rangeError);
+                // Add a note about the error
+                mergedSheetData[`A${currentRow}`] = { v: `Error processing sheet: ${sheetName}`, t: 's' };
+                currentRow++;
+              }
+            }
+          });
+        } catch (fileError: any) {
+          console.warn(`Error processing file ${file.name}:`, fileError);
+          // Add error note for this file
+          mergedSheetData[`A${currentRow}`] = { v: `Error processing file: ${file.name}`, t: 's' };
+          currentRow++;
+          mergedSheetData[`A${currentRow}`] = { v: `Error: ${fileError.message || 'Unknown error'}`, t: 's' };
+          currentRow++;
+        }
+      });
+      
+      // Set the range for the merged sheet
+      const maxRow = currentRow - 1;
+      
+      // Calculate the maximum number of columns from all files
+      let maxCol = 0;
+      loadedFiles.forEach(file => {
+        file.workbook.SheetNames.forEach((sheetName: string) => {
+          const worksheet = file.workbook.Sheets[sheetName];
+          if (worksheet && worksheet['!ref']) {
+            const range = window.XLSX.utils.decode_range(worksheet['!ref']);
+            maxCol = Math.max(maxCol, range.e.c);
+          }
         });
       });
+      
+      mergedSheetData['!ref'] = `A1:${window.XLSX.utils.encode_cell({ r: maxRow, c: maxCol })}`;
+      
+      mergedWorkbook.Sheets[mergedSheetName] = mergedSheetData;
 
       setProcessedWorkbookData(mergedWorkbook);
-      showMessage(formatMessage(t.messages.successfullyMerged, { count: selectedFiles.length }), 'success');
+      showMessage(`${t.messages.successfullyMerged.replace('{{count}}', String(selectedFiles.length))} Sheet name: ${mergedSheetName}`, 'success');
       
     } catch (error) {
       console.error('Processing error:', error);
@@ -187,10 +315,20 @@ const App: React.FC = () => {
       });
       const url = window.URL.createObjectURL(blob);
       
-      // Create download link
+      // Generate filename with current timestamp in YYYYMMDDhhss format
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const day = String(now.getDate()).padStart(2, '0');
+      const hours = String(now.getHours()).padStart(2, '0');
+      const minutes = String(now.getMinutes()).padStart(2, '0');
+      const seconds = String(now.getSeconds()).padStart(2, '0');
+      const timestamp = `${year}${month}${day}${hours}${minutes}${seconds}`;
+      
+      // Create download link with shorter filename to avoid Excel limitations
       const a = document.createElement('a');
       a.href = url;
-      a.download = `merged_excel_files_${new Date().toISOString().split('T')[0]}.xlsx`;
+      a.download = `proc_${timestamp}.xlsx`;
       document.body.appendChild(a);
       a.click();
       

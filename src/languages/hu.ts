@@ -27,8 +27,8 @@ export const hu = {
   mergeFiles: 'Fájlok Összevonása',
   
   // Save section
-  saveMergedFile: 'Összevont Fájl Mentése',
-  saveMergedFileDescription: 'A fájlok sikeresen össze lettek vonva',
+  saveMergedFile: 'Feldolgozott Fájl Mentése',
+  saveMergedFileDescription: 'A fájlok feldolgozása sikeres volt',
   
   // Messages
   messages: {

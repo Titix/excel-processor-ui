@@ -27,8 +27,8 @@ export const en = {
   mergeFiles: 'Merge Files',
   
   // Save section
-  saveMergedFile: 'Save Merged File',
-  saveMergedFileDescription: 'Your files have been merged successfully',
+  saveMergedFile: 'Save Processed File',
+  saveMergedFileDescription: 'Your files have been processed successfully',
   
   // Messages
   messages: {

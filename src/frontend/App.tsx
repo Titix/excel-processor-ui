@@ -211,75 +211,110 @@ const App: React.FC = () => {
       const mergedSheetName = "processed";
       mergedWorkbook.SheetNames.push(mergedSheetName);
       
-      // Create merged sheet data
-      const mergedSheetData: any = {};
-      let currentRow = 1;
+      // Step 1: Collect all data from all files
+      const allRows: any[][] = [];
+      let headers: any[] = [];
+      let totalRowsCollected = 0;
       
-      // Process each loaded file
+      console.log('=== COLLECTING DATA FROM ALL FILES ===');
+      
       loadedFiles.forEach((file, fileIndex) => {
-        try {
-          const workbook = file.workbook;
+        console.log(`Processing file ${fileIndex + 1}: ${file.name}`);
+        
+        const workbook = file.workbook;
+        
+        workbook.SheetNames.forEach((sheetName: string) => {
+          const worksheet = workbook.Sheets[sheetName];
           
-          // Process each sheet in the workbook
-          workbook.SheetNames.forEach((sheetName: string) => {
-            const worksheet = workbook.Sheets[sheetName];
-            
-            // Check if worksheet has data
-            if (worksheet && worksheet['!ref']) {
-              try {
-                const range = window.XLSX.utils.decode_range(worksheet['!ref']);
-                
-                // Copy ALL data from the sheet (no limits)
-                for (let row = range.s.r; row <= range.e.r; row++) {
-                  for (let col = range.s.c; col <= range.e.c; col++) {
-                    const cellAddress = window.XLSX.utils.encode_cell({ r: row, c: col });
-                    const cell = worksheet[cellAddress];
-                    if (cell && cell.v !== undefined) {
-                      const newAddress = window.XLSX.utils.encode_cell({ r: currentRow - 1, c: col });
-                      mergedSheetData[newAddress] = { v: cell.v, t: cell.t };
-                    }
-                  }
-                  currentRow++;
-                }
-              } catch (rangeError) {
-                console.warn(`Error processing range for sheet ${sheetName}:`, rangeError);
-                // Add a note about the error
-                mergedSheetData[`A${currentRow}`] = { v: `Error processing sheet: ${sheetName}`, t: 's' };
-                currentRow++;
-              }
-            }
-          });
-        } catch (fileError: any) {
-          console.warn(`Error processing file ${file.name}:`, fileError);
-          // Add error note for this file
-          mergedSheetData[`A${currentRow}`] = { v: `Error processing file: ${file.name}`, t: 's' };
-          currentRow++;
-          mergedSheetData[`A${currentRow}`] = { v: `Error: ${fileError.message || 'Unknown error'}`, t: 's' };
-          currentRow++;
-        }
-      });
-      
-      // Set the range for the merged sheet
-      const maxRow = currentRow - 1;
-      
-      // Calculate the maximum number of columns from all files
-      let maxCol = 0;
-      loadedFiles.forEach(file => {
-        file.workbook.SheetNames.forEach((sheetName: string) => {
-          const worksheet = file.workbook.Sheets[sheetName];
           if (worksheet && worksheet['!ref']) {
-            const range = window.XLSX.utils.decode_range(worksheet['!ref']);
-            maxCol = Math.max(maxCol, range.e.c);
+            try {
+              // Convert sheet to array of arrays for easier processing
+              const jsonData = window.XLSX.utils.sheet_to_json(worksheet, { 
+                header: 1, 
+                defval: '', 
+                raw: false 
+              }) as any[][];
+              
+              if (jsonData.length === 0) return;
+              
+              // Use headers from first file
+              if (fileIndex === 0 && allRows.length === 0) {
+                headers = jsonData[0] || [];
+                console.log('Headers detected:', headers);
+              }
+              
+              // Add all data rows (skip header)
+              const dataRows = jsonData.slice(1);
+              allRows.push(...dataRows);
+              totalRowsCollected += dataRows.length;
+              
+              console.log(`Added ${dataRows.length} rows from ${file.name} sheet ${sheetName}`);
+            } catch (error) {
+              console.warn(`Error processing sheet ${sheetName} in file ${file.name}:`, error);
+            }
           }
         });
       });
+      
+      console.log(`Total rows collected: ${totalRowsCollected}`);
+      
+      // Step 2: Remove duplicates across all files
+      const uniqueRows: any[][] = [];
+      const seenRows = new Set<string>();
+      let duplicatesRemoved = 0;
+      
+      console.log('=== REMOVING DUPLICATES ===');
+      
+      allRows.forEach((row, index) => {
+        // Convert row to string for comparison
+        const rowString = row.map(cell => 
+          cell === null || cell === undefined ? '' : String(cell).trim()
+        ).join('|');
+        
+        if (!seenRows.has(rowString)) {
+          seenRows.add(rowString);
+          uniqueRows.push(row);
+        } else {
+          duplicatesRemoved++;
+          console.log(`Duplicate removed:`, row);
+        }
+      });
+      
+      console.log(`Duplicates removed: ${duplicatesRemoved}`);
+      console.log(`Unique rows: ${uniqueRows.length}`);
+      
+      // Step 3: Create merged sheet with unique rows only
+      const mergedSheetData: any = {};
+      const finalData = [headers, ...uniqueRows];
+      
+      // Convert final data back to Excel format
+      finalData.forEach((row, rowIndex) => {
+        row.forEach((cell, colIndex) => {
+          if (cell !== undefined && cell !== null && cell !== '') {
+            const cellAddress = window.XLSX.utils.encode_cell({ r: rowIndex, c: colIndex });
+            mergedSheetData[cellAddress] = { v: cell, t: typeof cell === 'number' ? 'n' : 's' };
+          }
+        });
+      });
+      
+      // Set the range for the merged sheet
+      const maxRow = finalData.length - 1;
+      const maxCol = headers.length - 1;
       
       mergedSheetData['!ref'] = `A1:${window.XLSX.utils.encode_cell({ r: maxRow, c: maxCol })}`;
       
       mergedWorkbook.Sheets[mergedSheetName] = mergedSheetData;
 
       setProcessedWorkbookData(mergedWorkbook);
-      showMessage(`${t.messages.successfullyMerged.replace('{{count}}', String(selectedFiles.length))} Sheet name: ${mergedSheetName}`, 'success');
+      
+      // Show success message with duplicate removal results
+      const successMessage = `✅ Files processed successfully! 
+        📊 Total rows processed: ${totalRowsCollected}
+        🚫 Duplicates removed: ${duplicatesRemoved}
+        ✅ Unique rows in result: ${uniqueRows.length}
+        📁 Ready to download merged file.`;
+      
+      showMessage(successMessage, 'success');
       
     } catch (error) {
       console.error('Processing error:', error);

@@ -1,0 +1,31 @@
+{
+  "nyc": {
+    "include": [
+      "src/**/*.{ts,tsx,js}"
+    ],
+    "exclude": [
+      "src/**/*.d.ts",
+      "src/index.tsx",
+      "src/backend/**/*.js"
+    ],
+    "extension": [
+      ".ts",
+      ".tsx",
+      ".js"
+    ],
+    "require": [
+      "ts-node/register"
+    ],
+    "reporter": [
+      "text",
+      "html",
+      "lcov"
+    ],
+    "all": true,
+    "check-coverage": true,
+    "statements": 80,
+    "branches": 80,
+    "functions": 80,
+    "lines": 80
+  }
+}

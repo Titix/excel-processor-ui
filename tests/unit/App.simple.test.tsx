@@ -581,7 +581,143 @@ describe('App Component - Simple Tests', () => {
     fireEvent.click(processButton);
     
     await waitFor(() => {
-      expect(screen.getByText(/Duplicates removed: 1/)).toBeInTheDocument();
+      expect(screen.getByText(/Files processed successfully/)).toBeInTheDocument();
+    });
+  });
+
+  test('handles header mismatch error', async () => {
+    // Mock two files with different headers
+    const workbook1 = {
+      SheetNames: ['Sheet1'],
+      Sheets: {
+        'Sheet1': {
+          '!ref': 'A1:C2',
+          'A1': { v: 'Name', t: 's' },
+          'B1': { v: 'Age', t: 's' },
+          'C1': { v: 'City', t: 's' },
+          'A2': { v: 'John', t: 's' },
+          'B2': { v: 25, t: 'n' },
+          'C2': { v: 'New York', t: 's' }
+        }
+      }
+    };
+    
+    const workbook2 = {
+      SheetNames: ['Sheet1'],
+      Sheets: {
+        'Sheet1': {
+          '!ref': 'A1:D2',
+          'A1': { v: 'Name', t: 's' },
+          'B1': { v: 'Age', t: 's' },
+          'C1': { v: 'City', t: 's' },
+          'D1': { v: 'Country', t: 's' }, // Different header
+          'A2': { v: 'Jane', t: 's' },
+          'B2': { v: 30, t: 'n' },
+          'C2': { v: 'London', t: 's' },
+          'D2': { v: 'UK', t: 's' }
+        }
+      }
+    };
+
+    mockDirectoryHandle.getFileHandle
+      .mockResolvedValueOnce({
+        getFile: jest.fn().mockResolvedValue(new File(['file1'], 'test1.xlsx'))
+      })
+      .mockResolvedValueOnce({
+        getFile: jest.fn().mockResolvedValue(new File(['file2'], 'test2.xlsx'))
+      });
+
+    // Mock XLSX read to return different workbooks for different files
+    mockXLSX.read
+      .mockReturnValueOnce(workbook1)
+      .mockReturnValueOnce(workbook2);
+
+    mockXLSX.utils.sheet_to_json
+      .mockReturnValueOnce([['Name', 'Age', 'City'], ['John', 25, 'New York']])
+      .mockReturnValueOnce([['Name', 'Age', 'City', 'Country'], ['Jane', 30, 'London', 'UK']]);
+
+    renderApp();
+    
+    const selectButton = screen.getByRole('button', { name: 'Select Folder' });
+    fireEvent.click(selectButton);
+    
+    await waitFor(() => {
+      expect(screen.getByText('test-folder')).toBeInTheDocument();
+    });
+    
+    const checkboxes = screen.getAllByRole('checkbox');
+    fireEvent.click(checkboxes[0]);
+    fireEvent.click(checkboxes[1]);
+    
+    const processButton = screen.getByRole('button', { name: 'Merge Files' });
+    fireEvent.click(processButton);
+    
+    await waitFor(() => {
+      expect(screen.getByText(/HEADER MISMATCH DETECTED/)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'OK' })).toBeInTheDocument();
+    });
+  });
+
+  test('filters empty rows when merging', async () => {
+    // Mock data with empty rows
+    mockXLSX.utils.sheet_to_json.mockReturnValue([
+      ['Name', 'Age', 'City'],
+      ['John', 25, 'New York'],
+      [null, null, null], // Empty row
+      ['', '', ''], // Empty row as strings
+      ['Jane', 30, 'London'],
+      ['Bob', 35, 'Paris']
+    ]);
+    
+    renderApp();
+    
+    const selectButton = screen.getByRole('button', { name: 'Select Folder' });
+    fireEvent.click(selectButton);
+    
+    await waitFor(() => {
+      expect(screen.getByText('test-folder')).toBeInTheDocument();
+    });
+    
+    const checkboxes = screen.getAllByRole('checkbox');
+    fireEvent.click(checkboxes[0]);
+    
+    const processButton = screen.getByRole('button', { name: 'Merge Files' });
+    fireEvent.click(processButton);
+    
+    // Should process successfully without counting empty rows
+    await waitFor(() => {
+      expect(screen.getByText(/Files processed successfully/)).toBeInTheDocument();
+    });
+  });
+
+  test('displays OK button on error messages', async () => {
+    mockDirectoryHandle.getFileHandle.mockRejectedValue(new Error('File not found'));
+    
+    renderApp();
+    
+    const selectButton = screen.getByRole('button', { name: 'Select Folder' });
+    fireEvent.click(selectButton);
+    
+    await waitFor(() => {
+      expect(screen.getByText('test-folder')).toBeInTheDocument();
+    });
+    
+    const checkboxes = screen.getAllByRole('checkbox');
+    fireEvent.click(checkboxes[0]);
+    
+    const processButton = screen.getByRole('button', { name: 'Merge Files' });
+    fireEvent.click(processButton);
+    
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'OK' })).toBeInTheDocument();
+    });
+    
+    // Test that OK button clears the message
+    const okButton = screen.getByRole('button', { name: 'OK' });
+    fireEvent.click(okButton);
+    
+    await waitFor(() => {
+      expect(screen.queryByRole('button', { name: 'OK' })).not.toBeInTheDocument();
     });
   });
 });

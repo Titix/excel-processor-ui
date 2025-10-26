@@ -16,7 +16,7 @@
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:headed": "playwright test --headed",
     "test:all": "npm run test && npm run test:integration && npm run test:e2e",
-    "test:working": "jest --config jest.config.js --rootDir . --testPathPattern=\"(utils.test|LanguageSelector.simple.test|LanguageContext.simple.test|app-integration.simple.test)\"",
+    "test:working": "jest --config jest.config.js --rootDir . --testPathPattern=\"(utils.test|LanguageSelector.simple.test|LanguageContext.simple.test|app-integration.simple.test|duplicate-detection.test)\"",
     "test:all-working": "npm run test:working && npm run test:e2e",
     "eject": "react-scripts eject",
     "preview": "npm run build && serve -s build -l 3001",

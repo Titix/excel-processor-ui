@@ -25,6 +25,8 @@ export const hu = {
   mergeSelectedFiles: 'Kiválasztott Fájlok Összevonása',
   mergeFilesDescription: 'Kattints a gombra a kiválasztott Excel fájlok összevonásához',
   mergeFiles: 'Fájlok Összevonása',
+  filterAndMerge: 'Szűrés & Összevonás',
+  filterAndMergeDescription: 'Fájlok összevonása meghatározott oszlopokkal',
   filterDuplicates: 'Duplikátumok szűrése',
   
   // Duplicate section
@@ -62,7 +64,8 @@ export const hu = {
     uniqueRowsInResult: 'Egyedi sorok az eredményben:',
     allRowsKept: 'Összes',
     rowsKeptInResult: 'sor megtartva az eredményben',
-    readyToDownloadMergedFile: 'Az összevont fájl letölthető.'
+    readyToDownloadMergedFile: 'Az összevont fájl letölthető.',
+    bothHOLEmptyError: '❌ ÉRTÉKHIBA!\n\nHOL_1 és HOL_2 egyaránt "Üres"-re van állítva a következő sorokban: {rowNumbers}\n\nA fájlok feldolgozása megszakadt. Kérjük, javítsa ki az Excel fájlokban az adatokat!'
   },
   
   // File size units

@@ -25,6 +25,8 @@ export const en = {
   mergeSelectedFiles: 'Merge Selected Files',
   mergeFilesDescription: 'Click the button below to merge your selected Excel files',
   mergeFiles: 'Merge Files',
+  filterAndMerge: 'Filter & Merge',
+  filterAndMergeDescription: 'Merge files keeping only specific columns',
   filterDuplicates: 'Filter duplicates',
   
   // Duplicate section
@@ -62,7 +64,8 @@ export const en = {
     uniqueRowsInResult: 'Unique rows in result:',
     allRowsKept: 'All',
     rowsKeptInResult: 'rows kept in result',
-    readyToDownloadMergedFile: 'Ready to download merged file.'
+    readyToDownloadMergedFile: 'Ready to download merged file.',
+    bothHOLEmptyError: '❌ VALUE ERROR!\n\nBoth HOL_1 and HOL_2 are set to "Üres" in the following rows: {rowNumbers}\n\nFile processing stopped. Please fix the data in the Excel files!'
   },
   
   // File size units

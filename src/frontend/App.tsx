@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import './App.css';
 import { useLanguage, formatMessage } from '../contexts/LanguageContext';
 import LanguageSelector from '../components/LanguageSelector';
+import { ExcelColumnNames, COLUMN_NAMES, OUTPUT_COLUMN_NAMES, getWeekNumber, parseDate, getWeekDateRangeInHungarian } from '../constants';
 
 // Version constant - update this when releasing new versions
 const APP_VERSION = '1.0.0';
@@ -388,6 +389,294 @@ const App: React.FC = () => {
       
     } catch (error) {
       console.error('Processing error:', error);
+      showMessage(formatMessage(t.messages.processingFailed, { error: (error as Error).message }), 'error');
+    }
+  };
+
+  const filterAndMergeSelectedColumns = async () => {
+    const selectedFiles = excelFiles.filter(file => file.selected);
+    
+    if (selectedFiles.length === 0) {
+      showMessage(t.messages.selectAtLeastOneFile, 'error');
+      return;
+    }
+
+    try {
+      console.log('=== filterAndMergeSelectedColumns called ===');
+      console.log('Target columns:', COLUMN_NAMES);
+      showMessage(t.messages.loadingAndProcessing, 'info');
+      
+      // Load the actual Excel files and read their data
+      const loadedFiles = await loadSelectedFiles(selectedFiles);
+      
+      // Create merged workbook
+      const mergedWorkbook = {
+        SheetNames: [] as string[],
+        Sheets: {} as { [key: string]: any }
+      };
+
+      const mergedSheetName = "filtered_data";
+      mergedWorkbook.SheetNames.push(mergedSheetName);
+      
+      // Step 1: Collect and filter data from all files
+      const allFilteredRows: any[][] = [];
+      let headers: any[] = [];
+      let totalRowsCollected = 0;
+      
+      console.log('=== COLLECTING DATA WITH COLUMN FILTERING ===');
+      
+      loadedFiles.forEach((file, fileIndex) => {
+        console.log(`Processing file ${fileIndex + 1}: ${file.name}`);
+        
+        const workbook = file.workbook;
+        
+        workbook.SheetNames.forEach((sheetName: string) => {
+          const worksheet = workbook.Sheets[sheetName];
+          
+          if (worksheet && worksheet['!ref']) {
+            try {
+              // Convert sheet to array of arrays
+              const jsonData = window.XLSX.utils.sheet_to_json(worksheet, { 
+                header: 1, 
+                defval: '', 
+                raw: false 
+              }) as any[][];
+              
+              if (jsonData.length === 0) return;
+              
+              // Get all headers from the current sheet
+              const currentHeaders = jsonData[0] || [];
+              
+              // Find indices of target columns in the current headers
+              const targetIndices: number[] = [];
+              const headerMap: { [key: string]: number } = {};
+              
+              currentHeaders.forEach((header, index) => {
+                headerMap[String(header).trim()] = index;
+              });
+              
+              // Map target columns to their indices
+              COLUMN_NAMES.forEach((targetCol, colIndex) => {
+                // Try exact match first
+                let foundKey = Object.keys(headerMap).find(key => 
+                  key.trim() === targetCol.trim()
+                );
+                
+                // If no exact match, try partial match (contains)
+                if (!foundKey) {
+                  foundKey = Object.keys(headerMap).find(key => 
+                    key.trim().includes(targetCol.trim()) || targetCol.trim().includes(key.trim())
+                  );
+                }
+                
+                if (foundKey !== undefined) {
+                  const foundIndex = headerMap[foundKey];
+                  // For duplicate column names (like "'Hol'"), find the next matching column
+                  // that hasn't been used yet for this target column name
+                  let finalIndex = foundIndex;
+                  
+                  // Check if this is a duplicate column name and we need the second occurrence
+                  // Both HOL_1 and HOL_2 are named "'Hol'" in Excel, so we need to distinguish them
+                  const isHolColumn = targetCol === (ExcelColumnNames.HOL_1 as string) || targetCol === (ExcelColumnNames.HOL_2 as string);
+                  
+                  if (isHolColumn) {
+                    // Find all indices where this column appears
+                    const allIndices = currentHeaders
+                      .map((header, index) => ({ header, index }))
+                      .filter(item => String(item.header).trim() === foundKey)
+                      .map(item => item.index);
+                    
+                    // For HOL_2 (the second "'Hol'" column), take the second occurrence if it exists
+                    const isSecondHol = colIndex === 5; // HOL_2 is at index 5 in COLUMN_NAMES
+                    if (isSecondHol && allIndices.length > 1) {
+                      finalIndex = allIndices[1];
+                    } else {
+                      finalIndex = allIndices[0];
+                    }
+                  }
+                  
+                  targetIndices.push(finalIndex);
+                  console.log(`Found column "${targetCol}" at index ${finalIndex} as "${foundKey}"`);
+                } else {
+                  console.warn(`Column "${targetCol}" not found in file ${file.name}`);
+                  // Add empty cell for missing column
+                  targetIndices.push(-1);
+                }
+              });
+              
+              console.log(`Header mapping for ${file.name}:`, targetIndices);
+              
+              // Set headers from source columns (will add calculated columns later)
+              if (fileIndex === 0 && headers.length === 0) {
+                headers = [...COLUMN_NAMES]; // Source columns only
+                console.log('Source headers:', headers);
+              }
+              
+              // Filter rows to only include target columns
+              const dataRows = jsonData.slice(1).filter(row => {
+                // Check if row has any non-empty cell
+                return row.some(cell => cell !== null && cell !== undefined && cell !== '');
+              });
+              
+              // Extract only the target columns from each row
+              const filteredRows = dataRows.map(row => {
+                return targetIndices.map(index => {
+                  if (index === -1) {
+                    return ''; // Column not found in this file
+                  }
+                  return row[index] || '';
+                });
+              });
+              
+              allFilteredRows.push(...filteredRows);
+              totalRowsCollected += filteredRows.length;
+              
+              console.log(`Added ${filteredRows.length} filtered rows from ${file.name} sheet ${sheetName}`);
+            } catch (error) {
+              console.warn(`Error processing sheet ${sheetName} in file ${file.name}:`, error);
+            }
+          }
+        });
+      });
+      
+      console.log(`Total filtered rows collected: ${totalRowsCollected}`);
+      
+      // Step 2: Remove duplicates (if enabled)
+      let uniqueRows: any[][];
+      let duplicatesRemoved = 0;
+      
+      if (filterDuplicates) {
+        console.log('Filtering duplicates enabled');
+        const result = removeDuplicates(allFilteredRows);
+        uniqueRows = result.uniqueRows;
+        duplicatesRemoved = result.duplicatesRemoved;
+      } else {
+        console.log('Duplicate filtering is disabled. All rows kept.');
+        uniqueRows = allFilteredRows;
+      }
+      
+      console.log(`Final uniqueRows length: ${uniqueRows.length}`);
+      
+      // Step 2.5: Validate and process HOL_1 and HOL_2 values
+      // HOL_1 is at index 4, HOL_2 is at index 5 in the filtered data
+      const HOL_1_INDEX = 4;
+      const HOL_2_INDEX = 5;
+      
+      // Collect all problematic rows first
+      const problematicRows: number[] = [];
+      
+      for (let i = 0; i < uniqueRows.length; i++) {
+        const row = uniqueRows[i];
+        const hol1 = row[HOL_1_INDEX];
+        const hol2 = row[HOL_2_INDEX];
+        
+        // Rule 1: If HOL_1 is "Üres", replace it with HOL_2 value
+        if (hol1 === 'Üres') {
+          if (hol2 === 'Üres') {
+            // Rule 2: If both are "Üres", collect the row number
+            // Note: Add 2 because Excel rows start at 1 and row 1 is the header
+            const excelRowNumber = i + 2;
+            problematicRows.push(excelRowNumber);
+          } else {
+            // Replace HOL_1 with HOL_2 value
+            row[HOL_1_INDEX] = hol2;
+          }
+        }
+      }
+      
+      // If we found problematic rows, show error with all row numbers and stop processing
+      if (problematicRows.length > 0) {
+        const rowNumbers = problematicRows.join(', ');
+        const errorMessage = formatMessage(t.messages.bothHOLEmptyError, { rowNumbers });
+        showMessage(errorMessage, 'error');
+        return; // Stop processing
+      }
+      
+      // Step 3: Add calculated columns (Hónap, Hét, and Hét Részletesen) to each row
+      const uniqueRowsWithCalculatedColumns = uniqueRows.map(row => {
+        // Get TELJESITES column value (index 2 in the filtered data)
+        const teljesitesDateValue = row[2];
+        
+        // Calculate month, week number, and week date range from TELJESITES
+        let honap = '';
+        let het = '';
+        let hetReszletesen = '';
+        
+        if (teljesitesDateValue) {
+          const date = parseDate(teljesitesDateValue);
+          if (date) {
+            // Hónap: month number (1-12)
+            honap = String(date.getMonth() + 1);
+            
+            // Hét: week number in year
+            const weekNumber = getWeekNumber(date);
+            het = String(weekNumber);
+            
+            // Hét Részletesen: week number + week date range in Hungarian (e.g., "1. Január 1-7")
+            const year = date.getFullYear();
+            const weekRange = getWeekDateRangeInHungarian(weekNumber, year);
+            // Prefix with week number for alphabetical sorting
+            hetReszletesen = `${weekNumber}. ${weekRange}`;
+          }
+        }
+        
+        // Add calculated columns to the row
+        return [...row, honap, het, hetReszletesen];
+      });
+      
+      console.log(`Added calculated columns: Hónap, Hét, and Hét Részletesen`);
+      
+      // Step 4: Create merged sheet with calculated columns
+      const mergedSheetData: any = {};
+      const finalHeaders = [...OUTPUT_COLUMN_NAMES];
+      const finalData = [finalHeaders, ...uniqueRowsWithCalculatedColumns];
+      
+      // Convert final data back to Excel format
+      finalData.forEach((row, rowIndex) => {
+        row.forEach((cell, colIndex) => {
+          if (cell !== undefined && cell !== null && cell !== '') {
+            const cellAddress = window.XLSX.utils.encode_cell({ r: rowIndex, c: colIndex });
+            
+            // Determine cell type based on value
+            const cellType = typeof cell === 'number' ? 'n' : 's';
+            
+            mergedSheetData[cellAddress] = { v: cell, t: cellType };
+          }
+        });
+      });
+      
+      // Set the range for the merged sheet
+      const maxRow = finalData.length - 1;
+      const maxCol = finalHeaders.length - 1;
+      
+      mergedSheetData['!ref'] = `A1:${window.XLSX.utils.encode_cell({ r: maxRow, c: maxCol })}`;
+      
+      mergedWorkbook.Sheets[mergedSheetName] = mergedSheetData;
+      
+      console.log('Filtered merged workbook created successfully');
+      setProcessedWorkbookData(mergedWorkbook);
+      
+      // Show success message
+      let successMessage = `✅ ${t.messages.filesProcessedSuccessfully}
+        📊 ${t.messages.totalRowsProcessed} ${totalRowsCollected}
+        🎯 Columns: ${finalHeaders.join(', ')}`;
+      
+      if (filterDuplicates) {
+        successMessage += `
+        🚫 ${t.messages.duplicatesRemoved} ${duplicatesRemoved}
+        ✅ ${t.messages.uniqueRowsInResult} ${uniqueRows.length}`;
+      } else {
+        successMessage += `
+        ✅ ${t.messages.allRowsKept} ${uniqueRows.length} ${t.messages.rowsKeptInResult}`;
+      }
+      
+      successMessage += `
+        📁 ${t.messages.readyToDownloadMergedFile}`;
+      
+      showMessage(successMessage, 'success');
+      
+    } catch (error) {
+      console.error('Filtering error:', error);
       showMessage(formatMessage(t.messages.processingFailed, { error: (error as Error).message }), 'error');
     }
   };
@@ -808,21 +1097,6 @@ const App: React.FC = () => {
 
         {excelFiles.some(file => file.selected) && (
           <div className="process-section">
-            <div className="section-header">
-              <h3>{t.mergeSelectedFiles}</h3>
-              <p>{t.mergeFilesDescription}</p>
-            </div>
-            {/* Filter duplicates checkbox - temporarily hidden */}
-            {/* <div className="filter-option">
-              <label className="filter-checkbox">
-                <input
-                  type="checkbox"
-                  checked={filterDuplicates}
-                  onChange={(e) => setFilterDuplicates(e.target.checked)}
-                />
-                <span>{t.filterDuplicates}</span>
-              </label>
-            </div> */}
             <div className="button-group">
               <button 
                 type="button" 
@@ -830,6 +1104,13 @@ const App: React.FC = () => {
                 onClick={processFiles}
               >
                 {t.mergeFiles}
+              </button>
+              <button 
+                type="button" 
+                className="btn btn-success" 
+                onClick={filterAndMergeSelectedColumns}
+              >
+                {t.filterAndMerge}
               </button>
               <button 
                 type="button" 

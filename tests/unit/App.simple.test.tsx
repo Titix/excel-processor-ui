@@ -690,6 +690,63 @@ describe('App Component - Simple Tests', () => {
     });
   });
 
+  test('handles filter and merge with specific columns', async () => {
+    // Mock data with all columns
+    mockXLSX.utils.sheet_to_json.mockReturnValue([
+      ['Bizonylat fajta', 'Kelte', 'Teljesítés', 'Bruttó érték (HUF)', "'Hol'", "'Hol'", 'Other Column'],
+      ['Type1', '2025-01-01', '2025-01-02', 1000, 'Location1', 'Location2', 'ExtraData'],
+      ['Type2', '2025-01-03', '2025-01-04', 2000, 'Location3', 'Location4', 'ExtraData2']
+    ]);
+    
+    renderApp();
+    
+    const selectButton = screen.getByRole('button', { name: 'Select Folder' });
+    fireEvent.click(selectButton);
+    
+    await waitFor(() => {
+      expect(screen.getByText('test-folder')).toBeInTheDocument();
+    });
+    
+    const checkboxes = screen.getAllByRole('checkbox');
+    fireEvent.click(checkboxes[0]);
+    
+    const filterMergeButton = screen.getByRole('button', { name: /Filter & Merge/i });
+    fireEvent.click(filterMergeButton);
+    
+    await waitFor(() => {
+      expect(screen.getByText(/Files processed successfully/)).toBeInTheDocument();
+      expect(screen.getByText(/Columns included/)).toBeInTheDocument();
+    });
+  });
+
+  test('handles missing columns in filter and merge', async () => {
+    // Mock data with only some columns
+    mockXLSX.utils.sheet_to_json.mockReturnValue([
+      ['Bizonylat fajta', 'Kelte', 'Other Column'], // Missing some target columns
+      ['Type1', '2025-01-01', 'ExtraData'],
+      ['Type2', '2025-01-02', 'ExtraData2']
+    ]);
+    
+    renderApp();
+    
+    const selectButton = screen.getByRole('button', { name: 'Select Folder' });
+    fireEvent.click(selectButton);
+    
+    await waitFor(() => {
+      expect(screen.getByText('test-folder')).toBeInTheDocument();
+    });
+    
+    const checkboxes = screen.getAllByRole('checkbox');
+    fireEvent.click(checkboxes[0]);
+    
+    const filterMergeButton = screen.getByRole('button', { name: /Filter & Merge/i });
+    fireEvent.click(filterMergeButton);
+    
+    await waitFor(() => {
+      expect(screen.getByText(/Files processed successfully/)).toBeInTheDocument();
+    });
+  });
+
   test('displays OK button on error messages', async () => {
     mockDirectoryHandle.getFileHandle.mockRejectedValue(new Error('File not found'));
     

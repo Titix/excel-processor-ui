@@ -11,15 +11,17 @@ body {
     color: #333;
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     min-height: 100vh;
+    position: relative;
 }
 
 .container {
-    max-width: 800px;
-    margin: 0 auto;
+    width: 800px;
+    margin: 0;
     padding: 20px;
     min-height: 100vh;
     display: flex;
     flex-direction: column;
+    position: relative;
 }
 
 /* Header */
@@ -52,8 +54,12 @@ header p {
     opacity: 0.9;
 }
 
-/* Language Selector */
+/* Language Selector - Positioned at top right */
 .language-selector {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 1000;
     display: flex;
     align-items: center;
     gap: 10px;
@@ -112,7 +118,7 @@ header p {
     }
 }
 
-/* Main content */
+/* Main content - Positioned on left side with maximum size */
 main {
     flex: 1;
     background: white;
@@ -120,6 +126,9 @@ main {
     padding: 40px;
     box-shadow: 0 20px 40px rgba(0,0,0,0.1);
     margin-bottom: 20px;
+    width: 800px;
+    margin-right: auto;
+    margin-left: 20px;
 }
 
 /* Folder selection section */
@@ -326,6 +335,95 @@ main {
     text-align: center;
 }
 
+.section-header {
+    display: none; /* Hide section headers */
+}
+
+/* Button tooltip styles */
+.btn {
+    position: relative;
+}
+
+.btn[title]:hover::after {
+    content: attr(title);
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: #333;
+    color: white;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    white-space: nowrap;
+    z-index: 1000;
+    pointer-events: none;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+
+.btn[title]:hover::before {
+    content: '';
+    position: absolute;
+    bottom: calc(100% + 3px);
+    left: 50%;
+    transform: translateX(-50%);
+    border: 5px solid transparent;
+    border-top-color: #333;
+    z-index: 1000;
+    pointer-events: none;
+}
+
+.filter-option {
+    margin-bottom: 20px;
+    display: flex;
+    justify-content: center;
+}
+
+.filter-option label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    padding: 12px 20px;
+    background: white;
+    border-radius: 8px;
+    border: 2px solid #e9ecef;
+    transition: all 0.3s ease;
+    user-select: none;
+    flex-wrap: nowrap;
+    white-space: nowrap;
+}
+
+.filter-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    padding: 12px 20px;
+    background: white;
+    border-radius: 8px;
+    border: 2px solid #e9ecef;
+    transition: all 0.3s ease;
+    user-select: none;
+}
+
+.filter-checkbox:hover {
+    border-color: #667eea;
+    background: #f0f4ff;
+}
+
+.filter-checkbox input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+}
+
+.filter-checkbox span {
+    font-weight: 500;
+    color: #333;
+    font-size: 1rem;
+}
+
 .section-header h3 {
     margin-bottom: 10px;
     color: #333;
@@ -394,6 +492,17 @@ main {
     box-shadow: 0 5px 15px rgba(23, 162, 184, 0.4);
 }
 
+.btn-info {
+    background: #17a2b8;
+    color: white;
+}
+
+.btn-info:hover {
+    background: #138496;
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(23, 162, 184, 0.4);
+}
+
 .btn-small {
     padding: 8px 16px;
     font-size: 0.9rem;
@@ -408,13 +517,44 @@ main {
     color: #fff !important;
 }
 
+/* Button group */
+.button-group {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.button-hint {
+    color: #6c757d;
+    font-size: 0.9rem;
+    font-style: italic;
+    margin-top: 10px;
+}
+
 /* Message area */
 .message-area {
     min-height: 50px;
-    padding: 15px;
+    padding: 20px;
     border-radius: 8px;
     margin-top: 20px;
     display: none;
+    position: relative;
+}
+
+.message-content {
+    margin-bottom: 15px;
+}
+
+.message-ok-button {
+    padding: 10px 30px;
+    font-size: 1rem;
+}
+
+.message-area.success,
+.message-area.error,
+.message-area.info {
+    white-space: pre-line;
 }
 
 .message-area.success {
@@ -506,5 +646,15 @@ footer {
     .btn {
         width: 100%;
         margin-bottom: 10px;
+    }
+    
+    .button-group {
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .button-group .btn {
+        width: 100%;
+        max-width: 300px;
     }
 }

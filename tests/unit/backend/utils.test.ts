@@ -13,7 +13,7 @@ import {
   getMessageIcon,
   formatMessage,
   type MessageType
-} from '../../src/frontend/utils';
+} from '@/frontend/utils';
 
 describe('Utils', () => {
   describe('formatFileSize', () => {

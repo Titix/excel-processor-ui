@@ -3,7 +3,7 @@ const cors = require('cors');
 const path = require('path');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3000; // Default to 3000 to match React dev server and production expectations
 
 // Middleware
 app.use(cors());

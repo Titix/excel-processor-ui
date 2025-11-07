@@ -5,7 +5,7 @@ export const hu = {
   
   // Folder selection
   selectFolder: 'Mappa Kiválasztása',
-  selectFolderDescription: 'Válassz egy mappát az Excel fájlok kereséséhez',
+  selectFolderDescription: 'Megnyit egy mappa kiválasztási ablakot az Excel fájlok kereséséhez',
   
   // Folder info
   excelFilesFound: '{count} Excel fájl található',
@@ -23,20 +23,21 @@ export const hu = {
   
   // Process section
   mergeSelectedFiles: 'Kiválasztott Fájlok Összevonása',
-  mergeFilesDescription: 'Kattints a gombra a kiválasztott Excel fájlok összevonásához',
+  mergeFilesDescription: 'Összevonja a kiválasztott Excel fájlokat egyetlen fájlba az összes fájlból származó sorokkal',
   mergeFiles: 'Fájlok Összevonása',
-  filterAndMerge: 'Szűrés & Összevonás',
-  filterAndMergeDescription: 'Fájlok összevonása meghatározott oszlopokkal',
+  filterAndMerge: 'Szűrés',
+  filterAndMergeDescription: 'Szűri és összevonja a fájlokat előre meghatározott oszlopszabályok alapján és hozzáad számított Hónap és Hét oszlopokat',
   filterDuplicates: 'Duplikátumok szűrése',
+  retailWeekly: 'Kisker heti',
   
   // Duplicate section
   findDuplicates: 'Duplikátumok Keresése',
-  findDuplicatesDescription: 'Duplikátum sorok keresése és mentése egy Excel fájlból',
+  findDuplicatesDescription: 'Azonosítja és kinyeri a duplikátum sorokat egy kiválasztott Excel fájlból',
   saveDuplicates: 'Duplikátumok Mentése',
   
   // Save section
   saveMergedFile: 'Feldolgozott Fájl Mentése',
-  saveMergedFileDescription: 'A fájlok feldolgozása sikeres volt',
+  saveMergedFileDescription: 'Letölti a feldolgozott Excel fájlt a számítógépedre',
   
   // Messages
   messages: {
@@ -65,7 +66,8 @@ export const hu = {
     allRowsKept: 'Összes',
     rowsKeptInResult: 'sor megtartva az eredményben',
     readyToDownloadMergedFile: 'Az összevont fájl letölthető.',
-    bothHOLEmptyError: '❌ ÉRTÉKHIBA!\n\nHOL_1 és HOL_2 egyaránt "Üres"-re van állítva a következő sorokban: {rowNumbers}\n\nA fájlok feldolgozása megszakadt. Kérjük, javítsa ki az Excel fájlokban az adatokat!'
+    bothHOLEmptyError: '❌ ÉRTÉKHIBA!\n\nHOL_1 és HOL_2 egyaránt "Üres"-re van állítva a következő sorokban: {rowNumbers}\n\nA fájlok feldolgozása megszakadt. Kérjük, javítsa ki az Excel fájlokban az adatokat!',
+    checkboxSelected: 'A jelölőnégyzet be van jelölve.'
   },
   
   // File size units

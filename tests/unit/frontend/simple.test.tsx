@@ -5,8 +5,8 @@ import '@testing-library/jest-dom';
 // Mock CSS imports
 jest.mock('../../src/frontend/App.css', () => ({}));
 
-import App from '../../src/frontend/App';
-import { LanguageProvider } from '../../src/contexts/LanguageContext';
+import App from '@/frontend/App';
+import { LanguageProvider } from '@/contexts/LanguageContext';
 
 // Mock XLSX library
 const mockXLSX = {

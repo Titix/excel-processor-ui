@@ -1,7 +1,7 @@
 // Simple test for LanguageContext without React Testing Library
 import React from 'react';
-import { LanguageProvider, useLanguage, formatMessage } from '../../src/contexts/LanguageContext';
-import { Language } from '../../src/languages';
+import { LanguageProvider, useLanguage, formatMessage } from '@/contexts/LanguageContext';
+import { Language } from '@/languages/index';
 
 // Mock CSS imports
 jest.mock('../../src/components/LanguageSelector.css', () => ({}));

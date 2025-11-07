@@ -2,8 +2,8 @@ import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 
-import LanguageSelector from '../../src/components/LanguageSelector';
-import { LanguageProvider } from '../../src/contexts/LanguageContext';
+import LanguageSelector from '@/components/LanguageSelector';
+import { LanguageProvider } from '@/contexts/LanguageContext';
 
 // Mock CSS imports
 jest.mock('../../src/components/LanguageSelector.css', () => ({}));

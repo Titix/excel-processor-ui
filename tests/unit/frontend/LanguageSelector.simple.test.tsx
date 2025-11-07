@@ -1,6 +1,7 @@
 // Simple test for LanguageSelector without React Testing Library
 import React from 'react';
-import { LanguageProvider } from '../../src/contexts/LanguageContext';
+import { LanguageProvider } from '@/contexts/LanguageContext';
+import LanguageSelector from '@/components/LanguageSelector';
 
 // Mock CSS imports
 jest.mock('../../src/components/LanguageSelector.css', () => ({}));
@@ -9,10 +10,7 @@ jest.mock('../../src/components/LanguageSelector.css', () => ({}));
 describe('LanguageSelector - Simple Test', () => {
   test('LanguageSelector component can be imported', () => {
     // This test just verifies the component can be imported without crashing
-    expect(() => {
-      const LanguageSelector = require('../../src/components/LanguageSelector').default;
-      expect(LanguageSelector).toBeDefined();
-    }).not.toThrow();
+    expect(LanguageSelector).toBeDefined();
   });
 
   test('LanguageProvider can be imported', () => {

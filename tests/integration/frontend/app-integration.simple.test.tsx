@@ -1,7 +1,7 @@
 // Simple integration test without React Testing Library DOM rendering
 import React from 'react';
-import App from '../../src/frontend/App';
-import { LanguageProvider } from '../../src/contexts/LanguageContext';
+import App from '@/frontend/App';
+import { LanguageProvider } from '@/contexts/LanguageContext';
 
 // Mock CSS imports
 jest.mock('../../src/frontend/App.css', () => ({}));

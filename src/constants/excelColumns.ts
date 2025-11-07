@@ -125,6 +125,15 @@ export const parseDate = (dateValue: any): Date | null => {
       }
     }
     
+    // For objects, try to convert to string and parse
+    if (typeof dateValue === 'object') {
+      const stringValue = String(dateValue);
+      const parsed = new Date(stringValue);
+      if (!isNaN(parsed.getTime())) {
+        return parsed;
+      }
+    }
+    
     return null;
   } catch (error) {
     console.warn('Error parsing date:', dateValue, error);
@@ -134,18 +143,26 @@ export const parseDate = (dateValue: any): Date | null => {
 
 /**
  * Get the start date of a week for a given week number and year
- * Returns the Monday of that week
+ * Returns the Monday of that week (ISO 8601 week)
  */
 export const getWeekStartDate = (weekNumber: number, year: number): Date => {
-  // Calculate the start date of the week (ISO week)
+  // ISO 8601: Week 1 is the week containing January 4
+  // Find the Monday of the week containing January 4
   const jan4 = new Date(year, 0, 4);
-  const jan4Day = jan4.getDay() === 0 ? 7 : jan4.getDay(); // Convert Sunday (0) to 7
-  const yearStart = new Date(year, 0, 1);
-  const daysToMonday = (8 - jan4Day) % 7;
-  const week1Start = new Date(yearStart);
-  week1Start.setDate(yearStart.getDate() + daysToMonday);
+  const jan4Day = jan4.getDay() === 0 ? 7 : jan4.getDay(); // Convert Sunday (0) to 7 (ISO: Mon=1, Sun=7)
   
-  // Calculate the actual week start
+  // Calculate days to subtract to get to Monday (Jan 4's Monday)
+  // If Jan 4 is Monday (1), subtract 0 days
+  // If Jan 4 is Tuesday (2), subtract 1 day
+  // If Jan 4 is Sunday (7), subtract 6 days
+  // Formula: daysToMonday = (jan4Day - 1)
+  const daysToMonday = jan4Day - 1;
+  
+  // Calculate week 1 start (Monday of week containing Jan 4)
+  const week1Start = new Date(jan4);
+  week1Start.setDate(jan4.getDate() - daysToMonday);
+  
+  // Calculate the actual week start (Monday of the requested week)
   const weekStart = new Date(week1Start);
   weekStart.setDate(week1Start.getDate() + (weekNumber - 1) * 7);
   

@@ -3,6 +3,7 @@ import './App.css';
 import { useLanguage, formatMessage } from '../contexts/LanguageContext';
 import LanguageSelector from '../components/LanguageSelector';
 import { ExcelColumnNames, COLUMN_NAMES, OUTPUT_COLUMN_NAMES, getWeekNumber, parseDate, getWeekDateRangeInHungarian } from '../constants';
+import { calculateKiskerHeti } from '../utils/kiskerHetiCalculator';
 
 // Version constant - update this when releasing new versions
 const APP_VERSION = '1.0.0';
@@ -33,6 +34,8 @@ const App: React.FC = () => {
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState<MessageType>('info');
   const [filterDuplicates, setFilterDuplicates] = useState<boolean>(false); // Keep disabled for now
+  const [retailWeekly, setRetailWeekly] = useState<boolean>(false);
+  const [retailWeeklyWorkbookData, setRetailWeeklyWorkbookData] = useState<any>(null);
   
 
   const showMessage = (messageText: string, type: MessageType) => {
@@ -71,6 +74,7 @@ const App: React.FC = () => {
             setSelectedFolder(dirHandle.name);
             setDirectoryHandle(dirHandle);
             setExcelFiles(excelFilesList);
+            setRetailWeekly(false); // Reset checkbox when selecting new folder
       
       if (excelFilesList.length === 0) {
         showMessage(t.messages.noExcelFilesInFolder, 'info');
@@ -654,7 +658,124 @@ const App: React.FC = () => {
       mergedWorkbook.Sheets[mergedSheetName] = mergedSheetData;
       
       console.log('Filtered merged workbook created successfully');
+      
+      // Always create the pivot excel (store in processedWorkbookData)
       setProcessedWorkbookData(mergedWorkbook);
+      
+      // If retail weekly checkbox is checked, create KiskerHeti.xlsx based on pivot excel
+      if (retailWeekly) {
+        try {
+          console.log('=== KISKERHETI CALCULATION START ===');
+          console.log('finalHeaders:', finalHeaders);
+          console.log('finalData length:', finalData.length);
+          console.log('First 5 rows of finalData:', finalData.slice(0, 5));
+          // Use utility function to calculate KiskerHeti data
+          const kiskerHetiRows = calculateKiskerHeti(finalHeaders, finalData);
+          console.log('KiskerHeti result:', kiskerHetiRows);
+          console.log('=== KISKERHETI CALCULATION END ===');
+          
+          // Create new workbook structure
+          const kiskerHetiHeaders = ['Hét Részletesen', 'bolt', 'web', 'Grand Total'];
+          
+          // Create workbook
+          const kiskerHetiWorkbook = window.XLSX.utils.book_new();
+          const kiskerHetiSheetData: any = {};
+          
+          // Add headers
+          kiskerHetiHeaders.forEach((header, colIndex) => {
+            const cellAddress = window.XLSX.utils.encode_cell({ r: 0, c: colIndex });
+            kiskerHetiSheetData[cellAddress] = { v: header, t: 's' };
+          });
+          
+          // Add data rows from calculated result
+          const numberFormat = '#,##0.00';  // Excel format: thousands separator + 2 decimals
+          
+          // Calculate totals for the Grand Total row
+          let totalBolt = 0;
+          let totalWeb = 0;
+          let totalGrandTotal = 0;
+          
+          kiskerHetiRows.forEach((row, rowIndex) => {
+            const cellAddress0 = window.XLSX.utils.encode_cell({ r: rowIndex + 1, c: 0 });
+            kiskerHetiSheetData[cellAddress0] = { v: row.hetReszletesen, t: 's' };
+            
+            const cellAddress1 = window.XLSX.utils.encode_cell({ r: rowIndex + 1, c: 1 });
+            // Format with thousands separators and 2 decimal places, matching source format
+            kiskerHetiSheetData[cellAddress1] = { 
+              v: row.bolt, 
+              t: 'n',
+              z: numberFormat  // Excel format: thousands separator + 2 decimals
+            };
+            totalBolt += row.bolt;
+            
+            const cellAddress2 = window.XLSX.utils.encode_cell({ r: rowIndex + 1, c: 2 });
+            // Format with thousands separators and 2 decimal places, matching source format
+            kiskerHetiSheetData[cellAddress2] = { 
+              v: row.web, 
+              t: 'n',
+              z: numberFormat  // Excel format: thousands separator + 2 decimals
+            };
+            totalWeb += row.web;
+            
+            const cellAddress3 = window.XLSX.utils.encode_cell({ r: rowIndex + 1, c: 3 });
+            // Format with thousands separators and 2 decimal places, matching source format
+            kiskerHetiSheetData[cellAddress3] = { 
+              v: row.grandTotal, 
+              t: 'n',
+              z: numberFormat  // Excel format: thousands separator + 2 decimals
+            };
+            totalGrandTotal += row.grandTotal;
+          });
+          
+          // Add Grand Total row at the end
+          const grandTotalRowIndex = kiskerHetiRows.length + 1;
+          const grandTotalCellAddress0 = window.XLSX.utils.encode_cell({ r: grandTotalRowIndex, c: 0 });
+          kiskerHetiSheetData[grandTotalCellAddress0] = { 
+            v: 'Grand Total', 
+            t: 's'
+          };
+          
+          const grandTotalCellAddress1 = window.XLSX.utils.encode_cell({ r: grandTotalRowIndex, c: 1 });
+          kiskerHetiSheetData[grandTotalCellAddress1] = { 
+            v: totalBolt, 
+            t: 'n',
+            z: numberFormat  // Excel format: thousands separator + 2 decimals
+          };
+          
+          const grandTotalCellAddress2 = window.XLSX.utils.encode_cell({ r: grandTotalRowIndex, c: 2 });
+          kiskerHetiSheetData[grandTotalCellAddress2] = { 
+            v: totalWeb, 
+            t: 'n',
+            z: numberFormat  // Excel format: thousands separator + 2 decimals
+          };
+          
+          const grandTotalCellAddress3 = window.XLSX.utils.encode_cell({ r: grandTotalRowIndex, c: 3 });
+          kiskerHetiSheetData[grandTotalCellAddress3] = { 
+            v: totalGrandTotal, 
+            t: 'n',
+            z: numberFormat  // Excel format: thousands separator + 2 decimals
+          };
+          
+          // Set range (including the Grand Total row)
+          const maxRow = kiskerHetiRows.length + 1;  // +1 for Grand Total row
+          const maxCol = kiskerHetiHeaders.length - 1;
+          kiskerHetiSheetData['!ref'] = `A1:${window.XLSX.utils.encode_cell({ r: maxRow, c: maxCol })}`;
+          
+          const kiskerHetiSheetName = 'KiskerHeti';
+          kiskerHetiWorkbook.Sheets[kiskerHetiSheetName] = kiskerHetiSheetData;
+          kiskerHetiWorkbook.SheetNames = [kiskerHetiSheetName];
+          
+          setRetailWeeklyWorkbookData(kiskerHetiWorkbook);
+          
+        } catch (error) {
+          console.error('Error creating KiskerHeti workbook:', error);
+          showMessage(formatMessage(t.messages.processingFailed, { error: (error as Error).message }), 'error');
+          setRetailWeeklyWorkbookData(null);
+        }
+      } else {
+        // Clear any previous retail weekly data if checkbox is unchecked
+        setRetailWeeklyWorkbookData(null);
+      }
       
       // Show success message
       let successMessage = `✅ ${t.messages.filesProcessedSuccessfully}
@@ -855,7 +976,11 @@ const App: React.FC = () => {
   };
 
   const saveMergedFile = () => {
-    if (!processedWorkbookData) {
+    // Determine which workbook to save based on checkbox state
+    const workbookToSave = retailWeekly ? retailWeeklyWorkbookData : processedWorkbookData;
+    const filePrefix = retailWeekly ? 'KiskerHeti' : 'pivot';
+    
+    if (!workbookToSave) {
       showMessage(t.messages.pleaseProcessFilesFirst, 'error');
       return;
     }
@@ -867,12 +992,12 @@ const App: React.FC = () => {
     
     try {
       // Convert workbook to Excel file with optimized settings
-      const wbout = window.XLSX.write(processedWorkbookData, { 
+      const wbout = window.XLSX.write(workbookToSave, { 
         bookType: 'xlsx',
         type: 'array',
         compression: true,
         cellStyles: false,
-        cellNF: false,
+        cellNF: true,      // Enable number formats for proper number formatting
         cellHTML: false
       });
       
@@ -890,12 +1015,16 @@ const App: React.FC = () => {
       const hours = String(now.getHours()).padStart(2, '0');
       const minutes = String(now.getMinutes()).padStart(2, '0');
       const seconds = String(now.getSeconds()).padStart(2, '0');
-      const timestamp = `${year}${month}${day}${hours}${minutes}${seconds}`;
+      // KiskerHeti uses YYYYMMDDHHmm format, pivot uses YYYYMMDDHHmmss format
+      const timestamp = retailWeekly 
+        ? `${year}${month}${day}${hours}${minutes}`
+        : `${year}${month}${day}${hours}${minutes}${seconds}`;
       
-      // Create download link with shorter filename to avoid Excel limitations
+      // Create download link with appropriate filename
       const a = document.createElement('a');
       a.href = url;
-      a.download = `proc_${timestamp}.xlsx`;
+      // Save as KiskerHeti or pivot excel with timestamp
+      a.download = `${filePrefix}-${timestamp}.xlsx`;
       document.body.appendChild(a);
       a.click();
       
@@ -1002,9 +1131,9 @@ const App: React.FC = () => {
             <h1>{t.appTitle}</h1>
             <p>{t.appSubtitle}</p>
           </div>
-          <LanguageSelector />
         </div>
       </header>
+      <LanguageSelector />
 
       <main>
         {!selectedFolder ? (
@@ -1013,14 +1142,13 @@ const App: React.FC = () => {
               <div className="folder-selection-content">
                 <div className="folder-icon">📁</div>
                 <h3>{t.selectFolder}</h3>
-                <p>{t.selectFolderDescription}</p>
-                
                 
                 <div className="selection-options">
                   <button 
                     type="button" 
                     className="btn btn-primary" 
                     onClick={handleFolderSelection}
+                    title={t.selectFolderDescription}
                   >
                     {t.selectFolder}
                   </button>
@@ -1039,6 +1167,7 @@ const App: React.FC = () => {
               type="button" 
               className="btn btn-secondary btn-small" 
               onClick={chooseNewFolder}
+              title={t.chooseNewFolder}
             >
               {t.chooseNewFolder}
             </button>
@@ -1047,28 +1176,26 @@ const App: React.FC = () => {
 
         {selectedFolder && (
           <div className="files-section">
-            <div className="section-header">
-              <h3>{t.excelFilesFoundTitle}</h3>
-              <p>{t.selectFilesToMerge}</p>
-              {excelFiles.length > 0 && (
-                <div className="file-controls">
-                  <button 
-                    type="button" 
-                    className="btn btn-small btn-secondary" 
-                    onClick={selectAllFiles}
-                  >
-                    {t.selectAll}
-                  </button>
-                  <button 
-                    type="button" 
-                    className="btn btn-small btn-secondary" 
-                    onClick={deselectAllFiles}
-                  >
-                    {t.deselectAll}
-                  </button>
-                </div>
-              )}
-            </div>
+            {excelFiles.length > 0 && (
+              <div className="file-controls">
+                <button 
+                  type="button" 
+                  className="btn btn-small btn-secondary" 
+                  onClick={selectAllFiles}
+                  title={t.selectAll}
+                >
+                  {t.selectAll}
+                </button>
+                <button 
+                  type="button" 
+                  className="btn btn-small btn-secondary" 
+                  onClick={deselectAllFiles}
+                  title={t.deselectAll}
+                >
+                  {t.deselectAll}
+                </button>
+              </div>
+            )}
             <div className="files-list">
               {excelFiles.length > 0 ? (
                 excelFiles.map((file, index) => (
@@ -1102,6 +1229,7 @@ const App: React.FC = () => {
                 type="button" 
                 className="btn btn-warning" 
                 onClick={processFiles}
+                title={t.mergeFilesDescription}
               >
                 {t.mergeFiles}
               </button>
@@ -1109,6 +1237,7 @@ const App: React.FC = () => {
                 type="button" 
                 className="btn btn-success" 
                 onClick={filterAndMergeSelectedColumns}
+                title={t.filterAndMergeDescription}
               >
                 {t.filterAndMerge}
               </button>
@@ -1117,26 +1246,31 @@ const App: React.FC = () => {
                 className="btn btn-info" 
                 onClick={findDuplicatesInFile}
                 disabled={excelFiles.filter(file => file.selected).length !== 1}
+                title={t.findDuplicatesDescription}
               >
                 {t.saveDuplicates}
               </button>
             </div>
-            {excelFiles.filter(file => file.selected).length !== 1 && (
-              <p className="button-hint">{t.findDuplicatesDescription}</p>
-            )}
+            <div className="filter-option" style={{ marginTop: '10px', marginBottom: '10px' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <input
+                  type="checkbox"
+                  checked={retailWeekly}
+                  onChange={(e) => setRetailWeekly(e.target.checked)}
+                />
+                <span>{t.retailWeekly}</span>
+              </label>
+            </div>
           </div>
         )}
 
         {processedWorkbookData && (
           <div className="download-section">
-            <div className="section-header">
-              <h3>{t.saveMergedFile}</h3>
-              <p>{t.saveMergedFileDescription}</p>
-            </div>
             <button 
               type="button" 
               className="btn btn-success" 
               onClick={saveMergedFile}
+              title={t.saveMergedFileDescription}
             >
               {t.saveMergedFile}
             </button>
@@ -1145,14 +1279,11 @@ const App: React.FC = () => {
 
         {duplicatesWorkbookData && (
           <div className="download-section">
-            <div className="section-header">
-              <h3>{t.findDuplicates}</h3>
-              <p>{t.findDuplicatesDescription}</p>
-            </div>
             <button 
               type="button" 
               className="btn btn-success" 
               onClick={saveDuplicatesFile}
+              title={t.findDuplicatesDescription}
             >
               {t.saveDuplicates}
             </button>

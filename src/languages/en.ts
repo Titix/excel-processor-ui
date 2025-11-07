@@ -5,7 +5,7 @@ export const en = {
   
   // Folder selection
   selectFolder: 'Select Folder',
-  selectFolderDescription: 'Choose a folder to scan for Excel files',
+  selectFolderDescription: 'Opens a folder selection dialog to scan for Excel files',
   
   // Folder info
   excelFilesFound: '{count} Excel file(s) found',
@@ -23,20 +23,21 @@ export const en = {
   
   // Process section
   mergeSelectedFiles: 'Merge Selected Files',
-  mergeFilesDescription: 'Click the button below to merge your selected Excel files',
+  mergeFilesDescription: 'Merges selected Excel files into a single file with all rows from all files',
   mergeFiles: 'Merge Files',
   filterAndMerge: 'Filter & Merge',
-  filterAndMergeDescription: 'Merge files keeping only specific columns',
+  filterAndMergeDescription: 'Filters and merges files based on predefined column rules and adds calculated Month and Week columns',
   filterDuplicates: 'Filter duplicates',
+  retailWeekly: 'Retail weekly',
   
   // Duplicate section
   findDuplicates: 'Find Duplicates',
-  findDuplicatesDescription: 'Find and save duplicate rows from a single Excel file',
+  findDuplicatesDescription: 'Identifies and extracts duplicate rows from a single selected Excel file',
   saveDuplicates: 'Save Duplicates',
   
   // Save section
   saveMergedFile: 'Save Processed File',
-  saveMergedFileDescription: 'Your files have been processed successfully',
+  saveMergedFileDescription: 'Downloads the processed Excel file to your computer',
   
   // Messages
   messages: {
@@ -65,7 +66,8 @@ export const en = {
     allRowsKept: 'All',
     rowsKeptInResult: 'rows kept in result',
     readyToDownloadMergedFile: 'Ready to download merged file.',
-    bothHOLEmptyError: '❌ VALUE ERROR!\n\nBoth HOL_1 and HOL_2 are set to "Üres" in the following rows: {rowNumbers}\n\nFile processing stopped. Please fix the data in the Excel files!'
+    bothHOLEmptyError: '❌ VALUE ERROR!\n\nBoth HOL_1 and HOL_2 are set to "Üres" in the following rows: {rowNumbers}\n\nFile processing stopped. Please fix the data in the Excel files!',
+    checkboxSelected: 'Checkbox is selected.'
   },
   
   // File size units

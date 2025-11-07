@@ -11,15 +11,17 @@ body {
     color: #333;
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     min-height: 100vh;
+    position: relative;
 }
 
 .container {
-    max-width: 800px;
-    margin: 0 auto;
+    width: 800px;
+    margin: 0;
     padding: 20px;
     min-height: 100vh;
     display: flex;
     flex-direction: column;
+    position: relative;
 }
 
 /* Header */
@@ -52,8 +54,12 @@ header p {
     opacity: 0.9;
 }
 
-/* Language Selector */
+/* Language Selector - Positioned at top right */
 .language-selector {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 1000;
     display: flex;
     align-items: center;
     gap: 10px;
@@ -112,7 +118,7 @@ header p {
     }
 }
 
-/* Main content */
+/* Main content - Positioned on left side with maximum size */
 main {
     flex: 1;
     background: white;
@@ -120,6 +126,9 @@ main {
     padding: 40px;
     box-shadow: 0 20px 40px rgba(0,0,0,0.1);
     margin-bottom: 20px;
+    width: 800px;
+    margin-right: auto;
+    margin-left: 20px;
 }
 
 /* Folder selection section */
@@ -326,10 +335,63 @@ main {
     text-align: center;
 }
 
+.section-header {
+    display: none; /* Hide section headers */
+}
+
+/* Button tooltip styles */
+.btn {
+    position: relative;
+}
+
+.btn[title]:hover::after {
+    content: attr(title);
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: #333;
+    color: white;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    white-space: nowrap;
+    z-index: 1000;
+    pointer-events: none;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+
+.btn[title]:hover::before {
+    content: '';
+    position: absolute;
+    bottom: calc(100% + 3px);
+    left: 50%;
+    transform: translateX(-50%);
+    border: 5px solid transparent;
+    border-top-color: #333;
+    z-index: 1000;
+    pointer-events: none;
+}
+
 .filter-option {
     margin-bottom: 20px;
     display: flex;
     justify-content: center;
+}
+
+.filter-option label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    padding: 12px 20px;
+    background: white;
+    border-radius: 8px;
+    border: 2px solid #e9ecef;
+    transition: all 0.3s ease;
+    user-select: none;
+    flex-wrap: nowrap;
+    white-space: nowrap;
 }
 
 .filter-checkbox {

@@ -6,8 +6,12 @@ import {
   getWeekNumber,
   parseDate,
   getWeekDateRangeInHungarian,
-  getWeekStartDate
-} from '../../src/constants/excelColumns';
+  getWeekStartDate,
+  getAllColumnNames,
+  getColumnName,
+  isDefinedColumn,
+  getColumnKey
+} from '@/constants/excelColumns';
 
 describe('Excel Columns Constants', () => {
   describe('ExcelColumnNames', () => {
@@ -83,6 +87,53 @@ describe('Excel Columns Constants', () => {
       const feb29_2024 = new Date(2024, 1, 29);
       expect(getWeekNumber(feb29_2024)).toBeGreaterThan(0);
     });
+
+    test('calculates correct week for October 10-16, 2025', () => {
+      // October 10, 2025 is Friday - should be in week 41
+      const oct10 = new Date(2025, 9, 10);
+      const weekOct10 = getWeekNumber(oct10);
+      expect(weekOct10).toBe(41);
+
+      // October 11, 2025 is Saturday - should be in week 41
+      const oct11 = new Date(2025, 9, 11);
+      expect(getWeekNumber(oct11)).toBe(41);
+
+      // October 12, 2025 is Sunday - should be in week 41
+      const oct12 = new Date(2025, 9, 12);
+      expect(getWeekNumber(oct12)).toBe(41);
+
+      // October 13, 2025 is Monday - should be in week 42
+      const oct13 = new Date(2025, 9, 13);
+      expect(getWeekNumber(oct13)).toBe(42);
+
+      // October 14, 2025 is Tuesday - should be in week 42
+      const oct14 = new Date(2025, 9, 14);
+      expect(getWeekNumber(oct14)).toBe(42);
+
+      // October 15, 2025 is Wednesday - should be in week 42
+      const oct15 = new Date(2025, 9, 15);
+      expect(getWeekNumber(oct15)).toBe(42);
+
+      // October 16, 2025 is Thursday - should be in week 42
+      const oct16 = new Date(2025, 9, 16);
+      expect(getWeekNumber(oct16)).toBe(42);
+    });
+
+    test('ensures all dates in same week have same week number', () => {
+      // Week 41 of 2025: Oct 6 (Mon) - Oct 12 (Sun)
+      const datesWeek41 = [
+        new Date(2025, 9, 6),  // Monday
+        new Date(2025, 9, 7),  // Tuesday
+        new Date(2025, 9, 8),  // Wednesday
+        new Date(2025, 9, 9),  // Thursday
+        new Date(2025, 9, 10), // Friday
+        new Date(2025, 9, 11), // Saturday
+        new Date(2025, 9, 12)  // Sunday
+      ];
+      
+      const weekNumbers = datesWeek41.map(date => getWeekNumber(date));
+      weekNumbers.forEach(num => expect(num).toBe(41));
+    });
   });
 
   describe('parseDate', () => {
@@ -125,6 +176,36 @@ describe('Excel Columns Constants', () => {
       expect(parseDate(undefined)).toBeNull();
     });
 
+    test('handles date parsing errors gracefully', () => {
+      // Test with a value that might cause an error during parsing
+      // Mock console.warn to verify error logging
+      const originalWarn = console.warn;
+      const warnSpy = jest.fn();
+      console.warn = warnSpy;
+      
+      // Create a date value that will trigger the error path
+      const invalidDateObj = { toString: () => { throw new Error('Test error'); } };
+      
+      try {
+        const result = parseDate(invalidDateObj as any);
+        expect(result).toBeNull();
+        // Verify that console.warn was called
+        expect(warnSpy).toHaveBeenCalled();
+      } finally {
+        console.warn = originalWarn;
+      }
+    });
+
+    test('parses date strings that need time removal', () => {
+      // Test the path where dateValue.split(' ')[0] is used
+      const dateStr = '2025-01-15 10:30:00';
+      const parsed = parseDate(dateStr);
+      expect(parsed).toBeInstanceOf(Date);
+      expect(parsed!.getFullYear()).toBe(2025);
+      expect(parsed!.getMonth()).toBe(0);
+      expect(parsed!.getDate()).toBe(15);
+    });
+
     test('handles empty strings and whitespace', () => {
       expect(parseDate('   ')).toBeNull();
       expect(parseDate('  ')).toBeNull();
@@ -135,7 +216,32 @@ describe('Excel Columns Constants', () => {
     test('returns correct start date for week 1 in 2025', () => {
       const week1Start = getWeekStartDate(1, 2025);
       expect(week1Start).toBeInstanceOf(Date);
-      expect(week1Start.getFullYear()).toBe(2025);
+      // Week 1 of 2025 starts on Monday, December 30, 2024 (ISO 8601)
+      // This is correct - ISO weeks can start in the previous year
+      expect(week1Start.getFullYear()).toBe(2024);
+      expect(week1Start.getMonth()).toBe(11); // December (0-indexed)
+      expect(week1Start.getDate()).toBe(30);
+      expect(week1Start.getDay()).toBe(1); // Monday
+    });
+
+    test('returns correct start date for week 41 in 2025', () => {
+      // Week 41 of 2025 should start on Monday, October 6, 2025
+      const week41Start = getWeekStartDate(41, 2025);
+      expect(week41Start).toBeInstanceOf(Date);
+      expect(week41Start.getFullYear()).toBe(2025);
+      expect(week41Start.getMonth()).toBe(9); // October (0-indexed)
+      expect(week41Start.getDate()).toBe(6);
+      expect(week41Start.getDay()).toBe(1); // Monday
+    });
+
+    test('returns correct start date for week 42 in 2025', () => {
+      // Week 42 of 2025 should start on Monday, October 13, 2025
+      const week42Start = getWeekStartDate(42, 2025);
+      expect(week42Start).toBeInstanceOf(Date);
+      expect(week42Start.getFullYear()).toBe(2025);
+      expect(week42Start.getMonth()).toBe(9); // October (0-indexed)
+      expect(week42Start.getDate()).toBe(13);
+      expect(week42Start.getDay()).toBe(1); // Monday
     });
 
     test('returns a consistent day of week for each week', () => {
@@ -166,7 +272,10 @@ describe('Excel Columns Constants', () => {
       const firstWeekStart = getWeekStartDate(1, 2026);
       
       expect(lastWeekStart.getFullYear()).toBe(2025);
-      expect(firstWeekStart.getFullYear()).toBe(2026);
+      // Week 1 of 2026 starts in late 2025 (ISO 8601 allows this)
+      expect(firstWeekStart.getFullYear()).toBe(2025);
+      // But it should be the Monday of the week containing Jan 4, 2026
+      expect(firstWeekStart.getMonth()).toBe(11); // December
     });
   });
 
@@ -175,7 +284,9 @@ describe('Excel Columns Constants', () => {
       // Week 1 in 2025 starts on December 30, 2024 and ends on January 5, 2025
       const result = getWeekDateRangeInHungarian(1, 2025);
       expect(result).toContain('Január');
-      expect(result).toMatch(/\d+-\d+/);
+      // Week 1 spans two months, so format is "December 30-Január 5"
+      // Match digits with hyphen (allows text between)
+      expect(result).toMatch(/\d+.*-.*\d+/);
     });
 
     test('returns correct date range for week 10 in 2025', () => {
@@ -183,6 +294,26 @@ describe('Excel Columns Constants', () => {
       const result = getWeekDateRangeInHungarian(10, 2025);
       expect(result).toContain('Március');
       expect(result).toMatch(/\d+-\d+/);
+    });
+
+    test('returns correct date range for week 41 in 2025', () => {
+      // Week 41 in 2025 should be October 6-12, 2025
+      const result = getWeekDateRangeInHungarian(41, 2025);
+      expect(result).toBe('Október 6-12');
+      
+      // Verify the start date is correct
+      const week41Start = getWeekStartDate(41, 2025);
+      expect(week41Start.getFullYear()).toBe(2025);
+      expect(week41Start.getMonth()).toBe(9); // October (0-indexed)
+      expect(week41Start.getDate()).toBe(6);
+      expect(week41Start.getDay()).toBe(1); // Monday
+    });
+
+    test('returns correct date range for week 42 in 2025', () => {
+      // Week 42 in 2025 should be October 13-19, 2025
+      const result = getWeekDateRangeInHungarian(42, 2025);
+      expect(result).toContain('Október');
+      expect(result).toMatch(/Október\s+13-19/);
     });
 
     test('returns Hungarian month names', () => {
@@ -270,6 +401,24 @@ describe('Excel Columns Constants', () => {
       }
     });
 
+    test('end-to-end test for October 10, 2025 processing', () => {
+      // Simulate the exact flow from App.tsx for October 10, 2025
+      const testDate = new Date(2025, 9, 10); // October 10, 2025
+      const weekNumber = getWeekNumber(testDate);
+      const year = testDate.getFullYear();
+      const weekRange = getWeekDateRangeInHungarian(weekNumber, year);
+      
+      // October 10, 2025 should be in week 41
+      expect(weekNumber).toBe(41);
+      expect(year).toBe(2025);
+      // Week 41 of 2025 should be October 6-12
+      expect(weekRange).toBe('Október 6-12');
+      
+      // Test the full output format as used in App.tsx
+      const hetReszletesen = `${weekNumber}. ${weekRange}`;
+      expect(hetReszletesen).toBe('41. Október 6-12');
+    });
+
     test('handles dates at year boundaries', () => {
       // Test December 31
       const dec31 = new Date(2025, 11, 31);
@@ -304,6 +453,63 @@ describe('Excel Columns Constants', () => {
         expect(range).toBeDefined();
         expect(range).toMatch(/^.+?\s+\d+(-\d+|-.+?\s+\d+)/);
       });
+    });
+  });
+
+  describe('getAllColumnNames', () => {
+    test('returns all column names as an array', () => {
+      const columns = getAllColumnNames();
+      expect(columns).toBeInstanceOf(Array);
+      expect(columns.length).toBe(6);
+      expect(columns).toContain(ExcelColumnNames.BIZONYLAT_FAJTA);
+      expect(columns).toContain(ExcelColumnNames.KELTE);
+      expect(columns).toContain(ExcelColumnNames.TELJESITES);
+      expect(columns).toContain(ExcelColumnNames.BRUTTO_ERTEK_HUF);
+      expect(columns).toContain(ExcelColumnNames.HOL_1);
+      expect(columns).toContain(ExcelColumnNames.HOL_2);
+    });
+  });
+
+  describe('getColumnName', () => {
+    test('returns column name by key', () => {
+      expect(getColumnName('BIZONYLAT_FAJTA')).toBe('Bizonylat fajta');
+      expect(getColumnName('KELTE')).toBe('Kelte');
+      expect(getColumnName('TELJESITES')).toBe('Teljesítés');
+      expect(getColumnName('BRUTTO_ERTEK_HUF')).toBe('Bruttó érték (HUF)');
+      expect(getColumnName('HOL_1')).toBe("'Hol'");
+      expect(getColumnName('HOL_2')).toBe("'Hol'");
+    });
+  });
+
+  describe('isDefinedColumn', () => {
+    test('returns true for defined column names', () => {
+      expect(isDefinedColumn('Bizonylat fajta')).toBe(true);
+      expect(isDefinedColumn('Kelte')).toBe(true);
+      expect(isDefinedColumn('Teljesítés')).toBe(true);
+      expect(isDefinedColumn('Bruttó érték (HUF)')).toBe(true);
+      expect(isDefinedColumn("'Hol'")).toBe(true);
+    });
+
+    test('returns false for undefined column names', () => {
+      expect(isDefinedColumn('Unknown Column')).toBe(false);
+      expect(isDefinedColumn('')).toBe(false);
+      expect(isDefinedColumn('random text')).toBe(false);
+    });
+  });
+
+  describe('getColumnKey', () => {
+    test('returns key for valid column name', () => {
+      expect(getColumnKey('Bizonylat fajta')).toBe('BIZONYLAT_FAJTA');
+      expect(getColumnKey('Kelte')).toBe('KELTE');
+      expect(getColumnKey('Teljesítés')).toBe('TELJESITES');
+      expect(getColumnKey('Bruttó érték (HUF)')).toBe('BRUTTO_ERTEK_HUF');
+      expect(getColumnKey("'Hol'")).toBe('HOL_1'); // Returns first match
+    });
+
+    test('returns undefined for invalid column name', () => {
+      expect(getColumnKey('Unknown Column')).toBeUndefined();
+      expect(getColumnKey('')).toBeUndefined();
+      expect(getColumnKey('random text')).toBeUndefined();
     });
   });
 });

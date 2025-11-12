@@ -169,6 +169,34 @@ describe('Excel Columns Constants', () => {
       expect(parsed!.getFullYear()).toBe(2025);
     });
 
+    test('parses date strings with space-separated time', () => {
+      // This tests the branch where dateValue.split(' ')[0] is used
+      const dateStr = '2025-01-15 10:30:00';
+      const parsed = parseDate(dateStr);
+      expect(parsed).toBeInstanceOf(Date);
+      expect(parsed!.getFullYear()).toBe(2025);
+      expect(parsed!.getMonth()).toBe(0);
+      expect(parsed!.getDate()).toBe(15);
+    });
+
+    test('parses plain objects by converting to string', () => {
+      // This tests the branch where typeof dateValue === 'object' and String(dateValue) is used
+      // Use a plain object (not a Date) that has a toString method returning a valid date string
+      const dateObj = { toString: () => '2025-01-15' };
+      const parsed = parseDate(dateObj as any);
+      expect(parsed).toBeInstanceOf(Date);
+      expect(parsed!.getFullYear()).toBe(2025);
+      expect(parsed!.getMonth()).toBe(0);
+      expect(parsed!.getDate()).toBe(15);
+    });
+
+    test('handles invalid date objects', () => {
+      // Test object that can't be parsed as date
+      const invalidObj = { toString: () => 'invalid date string' };
+      const parsed = parseDate(invalidObj as any);
+      expect(parsed).toBeNull();
+    });
+
     test('returns null for invalid inputs', () => {
       expect(parseDate('invalid date')).toBeNull();
       expect(parseDate('')).toBeNull();
@@ -206,9 +234,103 @@ describe('Excel Columns Constants', () => {
       expect(parsed!.getDate()).toBe(15);
     });
 
+    test('parses date strings with space separator (covers line 124)', () => {
+      // Test the path where dateValue.split(' ')[0] is used and returns valid date
+      const dateStr = '2025-01-15 10:30:00';
+      const parsed = parseDate(dateStr);
+      expect(parsed).toBeInstanceOf(Date);
+      expect(parsed!.getFullYear()).toBe(2025);
+      expect(parsed!.getMonth()).toBe(0);
+      expect(parsed!.getDate()).toBe(15);
+      
+      // Test with different time formats
+      const dateStr2 = '2025-12-31 23:59:59';
+      const parsed2 = parseDate(dateStr2);
+      expect(parsed2).toBeInstanceOf(Date);
+      expect(parsed2!.getFullYear()).toBe(2025);
+      expect(parsed2!.getMonth()).toBe(11);
+      expect(parsed2!.getDate()).toBe(31);
+    });
+
+    test('parses object dates by converting to string (covers lines 131-133)', () => {
+      // Test the path where typeof dateValue === 'object' and String(dateValue) is used
+      const dateObj = new Date(2025, 5, 15);
+      const parsed = parseDate(dateObj);
+      expect(parsed).toBeInstanceOf(Date);
+      expect(parsed).toBe(dateObj); // Should return the same object
+      
+      // Test with an object that has a toString method
+      const objWithToString = {
+        toString: () => '2025-06-15T00:00:00.000Z'
+      };
+      const parsed2 = parseDate(objWithToString as any);
+      // Should attempt to parse the string representation
+      expect(parsed2).toBeInstanceOf(Date);
+      
+      // Test with an object that converts to invalid date string
+      const objInvalid = {
+        toString: () => 'invalid date string'
+      };
+      const parsed3 = parseDate(objInvalid as any);
+      expect(parsed3).toBeNull();
+    });
+
     test('handles empty strings and whitespace', () => {
       expect(parseDate('   ')).toBeNull();
       expect(parseDate('  ')).toBeNull();
+    });
+
+    test('parses Excel date serial numbers (number type)', () => {
+      // Excel date serial number for January 1, 2025
+      // Excel serial number: days since 1900-01-01
+      // January 1, 2025 = 45658 days from 1900-01-01
+      const excelSerial = 45658;
+      const parsed = parseDate(excelSerial);
+      expect(parsed).toBeInstanceOf(Date);
+      expect(parsed!.getFullYear()).toBe(2025);
+      expect(parsed!.getMonth()).toBe(0); // January (0-indexed)
+      expect(parsed!.getDate()).toBe(1);
+      
+      // Test with another Excel serial number
+      // Excel serial number for June 15, 2025 = 45823
+      const excelSerial2 = 45823;
+      const parsed2 = parseDate(excelSerial2);
+      expect(parsed2).toBeInstanceOf(Date);
+      expect(parsed2!.getFullYear()).toBe(2025);
+      expect(parsed2!.getMonth()).toBe(5); // June (0-indexed)
+      expect(parsed2!.getDate()).toBe(15);
+    });
+
+    test('parses Date objects directly (instanceof Date branch)', () => {
+      const dateObj = new Date(2025, 5, 15);
+      const parsed = parseDate(dateObj);
+      expect(parsed).toBe(dateObj); // Should return the same object
+      expect(parsed).toBeInstanceOf(Date);
+    });
+
+    test('handles string dates that fail first parse but succeed with time removal', () => {
+      // Test string that fails first Date() parse but succeeds after split
+      // This covers the branch: if (!isNaN(parsed.getTime())) for the first attempt
+      const validDateStr = '2025-01-15';
+      const parsed = parseDate(validDateStr);
+      expect(parsed).toBeInstanceOf(Date);
+      expect(parsed!.getFullYear()).toBe(2025);
+    });
+
+    test('handles string dates that fail both parse attempts', () => {
+      // Test string that fails both Date() parse attempts
+      const invalidDateStr = 'not-a-date';
+      const parsed = parseDate(invalidDateStr);
+      expect(parsed).toBeNull();
+    });
+
+    test('handles object dates that fail to parse after string conversion', () => {
+      // Test object that converts to string but fails to parse
+      const objInvalid = {
+        toString: () => 'not-a-valid-date-string'
+      };
+      const parsed = parseDate(objInvalid as any);
+      expect(parsed).toBeNull();
     });
   });
 

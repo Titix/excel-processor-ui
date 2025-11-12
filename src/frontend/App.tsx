@@ -33,6 +33,7 @@ const App: React.FC = () => {
   const [duplicatesWorkbookData, setDuplicatesWorkbookData] = useState<any>(null);
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState<MessageType>('info');
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [filterDuplicates, setFilterDuplicates] = useState<boolean>(false); // Keep disabled for now
   const [retailWeekly, setRetailWeekly] = useState<boolean>(false);
   const [retailWeeklyWorkbookData, setRetailWeeklyWorkbookData] = useState<any>(null);
